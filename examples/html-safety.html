@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSP-Mind-JS - HTML 安全示例</title>
+  <link rel="stylesheet" href="../src/xsp-mind.css" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .layout { display: flex; width: 100%; height: 100%; }
+    .sidebar {
+      width: 240px; flex: 0 0 240px; box-sizing: border-box; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; padding: 16px 12px; overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 14px; color: #111827; }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: block; padding: 10px 12px; border-radius: 8px; color: #334155;
+      text-decoration: none; font-size: 13px; line-height: 1.4; background: transparent;
+    }
+    .nav-item.active { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .toolbar { padding: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid #eee; }
+    button { padding: 6px 10px; cursor: pointer; }
+    .hint { color: #64748b; font-size: 12px; line-height: 1.5; max-width: 720px; }
+    #mind-root-safe { flex: 1; min-height: 0; background: #fafafa; }
+    #mind-svg-safe { width: 1600px; height: 500px; background: #fff; }
+    .status { padding: 8px 12px; font-size: 13px; background: #fff7ed; border-top: 1px solid #fed7aa; color: #9a3412; }
+    .status.safe { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>例子列表</h3>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html">← 示例首页</a>
+        <a class="nav-item" href="./index.html">示例1：基础 JSON 渲染</a>
+        <a class="nav-item" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
+        <a class="nav-item" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
+        <a class="nav-item" href="./events.html">示例4：点击触发 JS</a>
+        <a class="nav-item active" href="./html-safety.html">示例5：HTML 安全 / sanitize</a>
+        <a class="nav-item" href="./layouts.html">示例6：布局模式对比</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div style="padding:12px 14px; font-size:14px; color:#333; border-bottom:1px solid #eee;">
+        示例5：<code>allowHtmlText</code> + 可选 <code>sanitizeHtml</code>（不可信 JSON 请开启过滤）
+      </div>
+      <div class="toolbar">
+        <button id="btnUnsafe">加载恶意 HTML（无过滤）</button>
+        <button id="btnSafe">加载恶意 HTML（sanitizeHtml）</button>
+        <button id="btnTrusted">加载可信富文本</button>
+        <span class="hint">
+          恶意示例含 <code>&lt;img onerror=alert(...)&gt;</code> 与 <code>&lt;script&gt;</code>。
+          开启 <code>sanitizeHtml: true</code>（默认）时会剥离 on* 事件与 script 标签。
+        </span>
+      </div>
+      <div id="mind-root-safe">
+        <svg id="mind-svg-safe"></svg>
+      </div>
+      <div id="status" class="status">当前：sanitizeHtml = true（默认）</div>
+    </main>
+  </div>
+
+  <script src="../vendor/svg.min.js"></script>
+  <script src="../src/xsp-mind.js"></script>
+  <script>
+    const malicious = [
+      {
+        text: "不可信来源",
+        id: "root",
+        x: 80,
+        y: 180,
+        linestyle: "sline",
+        items: [
+          {
+            text: "<b>正常粗体</b> <img src=x onerror=\"alert('XSS: img onerror')\">",
+            id: "xss1",
+            x: 360,
+            y: 120,
+            items: []
+          },
+          {
+            text: "<scr" + "ipt>alert('XSS: script tag')</scr" + "ipt>点击无效脚本",
+            id: "xss2",
+            x: 360,
+            y: 240,
+            items: []
+          }
+        ]
+      }
+    ];
+
+    const trusted = [
+      {
+        text: "可信内容",
+        id: "root",
+        x: 80,
+        y: 180,
+        linestyle: "sline",
+        items: [
+          {
+            text: "<div style='font-weight:700;color:#0ea5e9'>✓ 已完成</div><div style='font-size:12px;opacity:.8'>进度 100%</div>",
+            id: "ok",
+            x: 360,
+            y: 180,
+            width: 220,
+            height: 56,
+            items: []
+          }
+        ]
+      }
+    ];
+
+    const statusEl = document.getElementById("status");
+    const app = new XSPMindJS("mind-root-safe", "mind-svg-safe");
+
+    function loadSample(data, sanitize, label) {
+      app.option.allowHtmlText = true;
+      app.option.sanitizeHtml = sanitize;
+      app.setData(data);
+      statusEl.textContent = "当前：" + label;
+      statusEl.className = "status" + (sanitize ? " safe" : "");
+    }
+
+    app.initflow({
+      option: {
+        box: { width: 180, height: 44 },
+        line: { color: "#00A1E7", width: 1.2, arrow: true },
+        allowHtmlText: true,
+        sanitizeHtml: true,
+        ismove: true,
+        pan: true,
+        zoom: true
+      },
+      data: trusted
+    });
+
+    document.getElementById("btnUnsafe").addEventListener("click", () => {
+      loadSample(malicious, false, "sanitizeHtml = false（危险，仅演示）");
+    });
+    document.getElementById("btnSafe").addEventListener("click", () => {
+      loadSample(malicious, true, "sanitizeHtml = true（推荐，已过滤危险片段）");
+    });
+    document.getElementById("btnTrusted").addEventListener("click", () => {
+      loadSample(trusted, true, "sanitizeHtml = true + 可信富文本");
+    });
+  </script>
+</body>
+</html>

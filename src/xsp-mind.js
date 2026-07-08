@@ -5,9 +5,11 @@
     text: { color: "#00A1E7", size: 12 },
     ismove: true,
     allowHtmlText: false,
+    // 当 allowHtmlText=true 时，默认过滤 script/on* 等危险片段
+    sanitizeHtml: true,
     editable: false,
     dblclickEdit: true,
-    // none | "tree-right"
+    // none | tree-right | tree-left | tree-down
     layout: "none",
     layoutGap: { x: 220, y: 28 },
     padding: 40,
@@ -43,6 +45,40 @@
 
   function cloneData(data) {
     return JSON.parse(JSON.stringify(data || []));
+  }
+
+  function sanitizeHtml(html) {
+    if (html == null) return "";
+    var wrapper = document.createElement("div");
+    wrapper.innerHTML = String(html);
+    var blocked = { SCRIPT: 1, IFRAME: 1, OBJECT: 1, EMBED: 1, LINK: 1, META: 1 };
+    wrapper.querySelectorAll("*").forEach(function (node) {
+      if (blocked[node.tagName]) {
+        node.remove();
+        return;
+      }
+      Array.prototype.slice.call(node.attributes).forEach(function (attr) {
+        var name = attr.name.toLowerCase();
+        var val = String(attr.value || "").trim().toLowerCase();
+        if (name.indexOf("on") === 0) node.removeAttribute(attr.name);
+        if ((name === "href" || name === "src") && (val.indexOf("javascript:") === 0 || val.indexOf("data:text") === 0)) {
+          node.removeAttribute(attr.name);
+        }
+        if (name === "style" && /expression|javascript:/i.test(attr.value)) {
+          node.removeAttribute("style");
+        }
+      });
+    });
+    return wrapper.innerHTML;
+  }
+
+  function measureTreeSpan(node) {
+    if (!Array.isArray(node.items) || node.items.length === 0) return 1;
+    var sum = 0;
+    node.items.forEach(function (child) {
+      sum += measureTreeSpan(child);
+    });
+    return Math.max(1, sum);
   }
 
   class XSPMindJS {
@@ -108,12 +144,21 @@
 
     setData(data) {
       this.data = Array.isArray(data) ? data : [];
+      this.clearSelection();
       if (this.option.layout && this.option.layout !== "none") {
         this.applyLayout(this.option.layout);
       }
       this.render();
       this.notifyChangeSoon();
       return this;
+    }
+
+    importJSON(text) {
+      var parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) {
+        throw new Error("JSON root must be an array");
+      }
+      return this.setData(parsed);
     }
 
     getData() {
@@ -274,10 +319,14 @@
     }
 
     fillNodeContent(el, node) {
+      var text = node.text || "";
       if (this.option.allowHtmlText) {
-        el.innerHTML = node.text || "";
+        if (this.option.sanitizeHtml !== false) {
+          text = sanitizeHtml(text);
+        }
+        el.innerHTML = text;
       } else {
-        el.textContent = node.text || "";
+        el.textContent = text;
       }
     }
 
@@ -633,9 +682,10 @@
     }
 
     applyLayout(mode) {
-      if (mode === "tree-right") {
-        this.layoutTreeRight();
-      }
+      if (mode === "tree-right") this.layoutTreeRight();
+      else if (mode === "tree-left") this.layoutTreeLeft();
+      else if (mode === "tree-down") this.layoutTreeDown();
+      if (mode) this.option.layout = mode;
       return this;
     }
 
@@ -646,26 +696,16 @@
       var startX = this.option.padding || 40;
       var cursorY = this.option.padding || 40;
 
-      function measure(node) {
-        if (!Array.isArray(node.items) || node.items.length === 0) return 1;
-        var sum = 0;
-        node.items.forEach(function (c) {
-          sum += measure(c);
-        });
-        return Math.max(1, sum);
-      }
-
       function place(node, depth, yStart) {
-        var w = Number(node.width != null ? node.width : self.option.box.width);
         var h = Number(node.height != null ? node.height : self.option.box.height);
-        var span = measure(node);
+        var span = measureTreeSpan(node);
         var blockH = span * (h + gapY) - gapY;
         node.x = startX + depth * gapX;
         node.y = Math.round(yStart + (blockH - h) / 2);
         if (!Array.isArray(node.items) || !node.items.length) return;
         var childY = yStart;
         node.items.forEach(function (child) {
-          var cSpan = measure(child);
+          var cSpan = measureTreeSpan(child);
           var cH = Number(child.height != null ? child.height : self.option.box.height);
           var cBlock = cSpan * (cH + gapY) - gapY;
           place(child, depth + 1, childY);
@@ -674,11 +714,92 @@
       }
 
       (this.data || []).forEach(function (root) {
-        var span = measure(root);
+        var span = measureTreeSpan(root);
         var h = Number(root.height != null ? root.height : self.option.box.height);
         var blockH = span * (h + gapY) - gapY;
         place(root, 0, cursorY);
         cursorY += blockH + gapY * 2;
+      });
+    }
+
+    layoutTreeLeft() {
+      var self = this;
+      var gapX = (this.option.layoutGap && this.option.layoutGap.x) || 220;
+      var gapY = (this.option.layoutGap && this.option.layoutGap.y) || 28;
+      var pad = this.option.padding || 40;
+      var cursorY = pad;
+
+      function maxDepth(node, depth) {
+        var md = depth;
+        (node.items || []).forEach(function (child) {
+          md = Math.max(md, maxDepth(child, depth + 1));
+        });
+        return md;
+      }
+
+      var forestMaxDepth = 0;
+      (this.data || []).forEach(function (root) {
+        forestMaxDepth = Math.max(forestMaxDepth, maxDepth(root, 0));
+      });
+      var startX = pad + forestMaxDepth * gapX;
+
+      function place(node, depth, yStart) {
+        var h = Number(node.height != null ? node.height : self.option.box.height);
+        var span = measureTreeSpan(node);
+        var blockH = span * (h + gapY) - gapY;
+        node.x = startX - depth * gapX;
+        node.y = Math.round(yStart + (blockH - h) / 2);
+        if (!Array.isArray(node.items) || !node.items.length) return;
+        var childY = yStart;
+        node.items.forEach(function (child) {
+          var cSpan = measureTreeSpan(child);
+          var cH = Number(child.height != null ? child.height : self.option.box.height);
+          var cBlock = cSpan * (cH + gapY) - gapY;
+          place(child, depth + 1, childY);
+          childY += cBlock + gapY;
+        });
+      }
+
+      (this.data || []).forEach(function (root) {
+        var span = measureTreeSpan(root);
+        var h = Number(root.height != null ? root.height : self.option.box.height);
+        var blockH = span * (h + gapY) - gapY;
+        place(root, 0, cursorY);
+        cursorY += blockH + gapY * 2;
+      });
+    }
+
+    layoutTreeDown() {
+      var self = this;
+      var gapX = (this.option.layoutGap && this.option.layoutGap.x) || 180;
+      var gapY = (this.option.layoutGap && this.option.layoutGap.y) || 80;
+      var startY = this.option.padding || 40;
+      var cursorX = this.option.padding || 40;
+
+      function place(node, depth, xStart) {
+        var w = Number(node.width != null ? node.width : self.option.box.width);
+        var h = Number(node.height != null ? node.height : self.option.box.height);
+        var span = measureTreeSpan(node);
+        var blockW = span * (w + gapX) - gapX;
+        node.x = Math.round(xStart + (blockW - w) / 2);
+        node.y = startY + depth * gapY;
+        if (!Array.isArray(node.items) || !node.items.length) return;
+        var childX = xStart;
+        node.items.forEach(function (child) {
+          var cSpan = measureTreeSpan(child);
+          var cW = Number(child.width != null ? child.width : self.option.box.width);
+          var cBlock = cSpan * (cW + gapX) - gapX;
+          place(child, depth + 1, childX);
+          childX += cBlock + gapX;
+        });
+      }
+
+      (this.data || []).forEach(function (root) {
+        var w = Number(root.width != null ? root.width : self.option.box.width);
+        var span = measureTreeSpan(root);
+        var blockW = span * (w + gapX) - gapX;
+        place(root, 0, cursorX);
+        cursorX += blockW + gapX * 2;
       });
     }
 
@@ -836,4 +957,5 @@
   }
 
   global.XSPMindJS = XSPMindJS;
+  global.XSPMindJS.sanitizeHtml = sanitizeHtml;
 })(window);

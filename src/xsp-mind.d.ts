@@ -44,9 +44,11 @@ export interface XSPMindOption {
   text?: Partial<XSPMindTextOption>;
   ismove?: boolean;
   allowHtmlText?: boolean;
+  /** 当 allowHtmlText=true 时，默认 true，过滤 script/on* 等 */
+  sanitizeHtml?: boolean;
   editable?: boolean;
   dblclickEdit?: boolean;
-  layout?: "none" | "tree-right" | string;
+  layout?: "none" | "tree-right" | "tree-left" | "tree-down" | string;
   layoutGap?: Partial<XSPMindLayoutGap>;
   padding?: number;
   pan?: boolean;
@@ -69,6 +71,7 @@ export declare class XSPMindJS {
   data: XSPMindNode[];
   initflow(payload: XSPMindInitPayload): this;
   setData(data: XSPMindNode[]): this;
+  importJSON(text: string): this;
   getData(): XSPMindNode[];
   toJSON(pretty?: boolean): string;
   destroy(): void;
@@ -93,9 +96,12 @@ export {};
 
 declare global {
   interface Window {
-    XSPMindJS: typeof XSPMindJS;
+    XSPMindJS: typeof XSPMindJS & {
+      sanitizeHtml(html: string): string;
+    };
   }
   const XSPMindJS: {
     new (containerId: string, svgId: string): XSPMindJS;
+    sanitizeHtml(html: string): string;
   };
 }

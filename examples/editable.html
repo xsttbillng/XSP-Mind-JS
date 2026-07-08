@@ -27,7 +27,11 @@
     button { padding: 6px 10px; cursor: pointer; }
     #selected { color: #333; font-size: 13px; }
     .hint { color: #64748b; font-size: 12px; }
-    pre { margin: 0; padding: 10px; height: 35vh; overflow: auto; background: #0b1020; color: #e6e6e6; font-size: 12px; line-height: 1.4; }
+    #jsonOut {
+      margin: 0; padding: 10px; width: 100%; height: 35vh; box-sizing: border-box;
+      overflow: auto; background: #0b1020; color: #e6e6e6; font-size: 12px; line-height: 1.4;
+      border: none; resize: vertical; font-family: Consolas, "Courier New", monospace;
+    }
   </style>
 </head>
 <body>
@@ -40,18 +44,25 @@
         <a class="nav-item active" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
         <a class="nav-item" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
         <a class="nav-item" href="./events.html">示例4：点击触发 JS</a>
+        <a class="nav-item" href="./html-safety.html">示例5：HTML 安全 / sanitize</a>
+        <a class="nav-item" href="./layouts.html">示例6：布局模式对比</a>
       </nav>
     </aside>
     <main class="main">
   <div style="padding:12px 14px; font-size:14px; color:#333; font-family: Arial, sans-serif; border-bottom:1px solid #eee;">
-    示例2：可编辑（增删 / 双击改字 / 布局 / 导出）+ 实时 JSON
+    示例2：可编辑（增删 / 双击改字 / 布局 / 导入导出 JSON）+ 实时 JSON
   </div>
   <div class="wrap">
     <div class="toolbar">
       <button id="btnAdd">添加到所选下</button>
       <button id="btnDel">删除所选</button>
-      <button id="btnLayout">树形自动布局</button>
+      <button id="btnLayoutRight">布局→右</button>
+      <button id="btnLayoutLeft">布局←左</button>
+      <button id="btnLayoutDown">布局↓下</button>
       <button id="btnResetView">重置视图</button>
+      <input type="file" id="jsonFile" accept=".json,application/json" hidden />
+      <button id="btnImportFile">选择 JSON 文件</button>
+      <button id="btnImportText">加载下方 JSON</button>
       <button id="btnExportJson">导出 JSON</button>
       <button id="btnExportSvg">导出 SVG</button>
       <button id="btnExportPng">导出 PNG</button>
@@ -63,7 +74,7 @@
       <svg id="mind-svg-edit"></svg>
     </div>
 
-    <pre id="jsonOut">loading...</pre>
+    <textarea id="jsonOut" spellcheck="false">loading...</textarea>
   </div>
     </main>
   </div>
@@ -72,7 +83,7 @@
   <script src="../src/xsp-mind.js"></script>
   <script>
     if (!window.SVG) {
-      document.getElementById("jsonOut").textContent =
+      document.getElementById("jsonOut").value =
         "错误：SVG.js 未加载。请确认 ../vendor/svg.min.js 存在，并重新部署 GitHub Pages。";
       throw new Error("SVG.js not loaded");
     }
@@ -118,14 +129,14 @@
           selectedEl.textContent = "所选节点：" + node.id + "（" + node.text + "）";
         },
         onChange: () => {
-          jsonOut.textContent = app.toJSON(true);
+          jsonOut.value = app.toJSON(true);
         }
       },
       data: initData
     });
-    jsonOut.textContent = app.toJSON(true);
+    jsonOut.value = app.toJSON(true);
     } catch (err) {
-      jsonOut.textContent = "初始化失败: " + (err && err.message ? err.message : err);
+      jsonOut.value = "初始化失败: " + (err && err.message ? err.message : err);
       console.error(err);
     }
 
@@ -152,11 +163,53 @@
       app.removeNode(selected);
     });
 
-    document.getElementById("btnLayout").addEventListener("click", () => {
-      app.option.layout = "tree-right";
-      app.applyLayout("tree-right");
+    function applyNamedLayout(mode) {
+      app.option.layout = mode;
+      app.applyLayout(mode);
       app.render();
-      jsonOut.textContent = app.toJSON(true);
+      jsonOut.value = app.toJSON(true);
+    }
+
+    function importJsonText(text) {
+      app.importJSON(text);
+      if (app.option.layout && app.option.layout !== "none") {
+        app.applyLayout(app.option.layout);
+        app.render();
+      }
+      jsonOut.value = app.toJSON(true);
+      selected = null;
+      selectedEl.textContent = "所选节点：无";
+    }
+
+    document.getElementById("btnLayoutRight").addEventListener("click", () => applyNamedLayout("tree-right"));
+    document.getElementById("btnLayoutLeft").addEventListener("click", () => applyNamedLayout("tree-left"));
+    document.getElementById("btnLayoutDown").addEventListener("click", () => applyNamedLayout("tree-down"));
+
+    document.getElementById("btnImportFile").addEventListener("click", () => {
+      document.getElementById("jsonFile").click();
+    });
+
+    document.getElementById("jsonFile").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          importJsonText(reader.result);
+        } catch (err) {
+          alert("导入失败: " + (err && err.message ? err.message : err));
+        }
+        e.target.value = "";
+      };
+      reader.readAsText(file, "utf-8");
+    });
+
+    document.getElementById("btnImportText").addEventListener("click", () => {
+      try {
+        importJsonText(jsonOut.value);
+      } catch (err) {
+        alert("加载失败: " + (err && err.message ? err.message : err));
+      }
     });
 
     document.getElementById("btnResetView").addEventListener("click", () => app.resetView());
