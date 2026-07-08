@@ -1,7 +1,7 @@
 (function (global) {
   const DEFAULT_OPTION = {
     box: { width: 140, height: 36 },
-    line: { color: "#00A1E7", width: 1.2, arrow: true },
+    line: { color: "#00A1E7", width: 1.2, arrow: true, dash: false, animate: false, animateSpeed: 1 },
     text: { color: "#00A1E7", size: 12 },
     ismove: true,
     allowHtmlText: false,
@@ -99,6 +99,7 @@
       this.lines = [];
       this.lineTexts = [];
       this.arrowMarker = null;
+      this.arrowMarkers = new Map();
       this.nodeElements = new Map();
       this.nodeMeta = new Map();
       this.selectedNodeId = null;
@@ -190,17 +191,33 @@
     }
 
     ensureArrowMarker() {
-      if (!this.canvas) return;
       var color = (this.option.line && this.option.line.color) || "#00A1E7";
-      try {
-        this.arrowMarker = this.canvas.marker(10, 7, function (add) {
-          add.polygon("0,0 10,3.5 0,7").fill(color);
-        });
-        this.arrowMarker.ref(10, 3.5);
-        this.arrowMarker.size(10, 7);
-      } catch (e) {
-        this.arrowMarker = null;
+      this.arrowMarker = this.getArrowMarker(color);
+    }
+
+    getArrowMarker(color) {
+      if (!this.canvas) return null;
+      var key = color || (this.option.line && this.option.line.color) || "#00A1E7";
+      if (this.arrowMarkers && this.arrowMarkers.has(key)) {
+        return this.arrowMarkers.get(key);
       }
+      if (!this.arrowMarkers) this.arrowMarkers = new Map();
+      try {
+        var marker = this.canvas.marker(10, 7, function (add) {
+          add.polygon("0,0 10,3.5 0,7").fill(key);
+        });
+        marker.ref(10, 3.5);
+        marker.size(10, 7);
+        this.arrowMarkers.set(key, marker);
+        return marker;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    clearArrowMarkers() {
+      this.arrowMarker = null;
+      this.arrowMarkers = new Map();
     }
 
     render() {
@@ -217,7 +234,7 @@
         n.remove();
       });
       if (this.canvas) this.canvas.clear();
-      this.arrowMarker = null;
+      this.clearArrowMarkers();
       this.lines = [];
       this.lineTexts = [];
       this.nodeElements.clear();
@@ -440,9 +457,14 @@
     drawLine(parent, child) {
       var a = this.getAnchor(parent, child);
       var style = child.linestyle || "line";
+      var color = this.resolveLineColor(child);
+      var width =
+        child.linewidth != null
+          ? Number(child.linewidth)
+          : Number((this.option.line && this.option.line.width) || 1.2);
       var stroke = {
-        color: this.option.line.color,
-        width: this.option.line.width,
+        color: color,
+        width: width,
         linecap: "round",
         linejoin: "round"
       };
@@ -460,24 +482,82 @@
         line = this.canvas.line(a.x1, a.y1, a.x2, a.y2).fill("none").stroke(stroke);
       }
 
-      if (this.option.line.arrow !== false && this.arrowMarker && line && line.marker) {
-        try {
-          line.marker("end", this.arrowMarker);
-        } catch (e) {}
+      if (this.option.line.arrow !== false && line && line.marker) {
+        var marker = this.getArrowMarker(color);
+        if (marker) {
+          try {
+            line.marker("end", marker);
+          } catch (e) {}
+        }
       }
 
+      this.applyLineVisual(line, child);
       this.lines.push({ id: parent.id + "->" + child.id, line: line });
-      this.drawLineText(child.linetext, a.x1, a.y1, a.x2, a.y2);
+      this.drawLineText(child.linetext, a.x1, a.y1, a.x2, a.y2, child);
     }
 
-    drawLineText(text, x1, y1, x2, y2) {
+    resolveLineColor(child) {
+      if (child && child.linecolor) return String(child.linecolor);
+      return (this.option.line && this.option.line.color) || "#00A1E7";
+    }
+
+    resolveLineDash(child) {
+      var lineOpt = this.option.line || {};
+      var dash = child && child.linedash != null ? child.linedash : lineOpt.dash;
+      var animate = this.resolveLineAnimate(child);
+      if (animate && !dash) dash = true;
+      return dash;
+    }
+
+    resolveLineAnimate(child) {
+      var lineOpt = this.option.line || {};
+      if (child && child.lineanimate != null) return child.lineanimate;
+      return lineOpt.animate;
+    }
+
+    normalizeDashArray(dash) {
+      if (dash === true) return [8, 6];
+      if (Array.isArray(dash) && dash.length >= 2) {
+        return [Number(dash[0]) || 8, Number(dash[1]) || 6];
+      }
+      return [8, 6];
+    }
+
+    applyLineVisual(svgLine, child) {
+      var dash = this.resolveLineDash(child);
+      var animate = this.resolveLineAnimate(child);
+      if (!dash && !animate) return;
+
+      var arr = this.normalizeDashArray(dash);
+      var el = svgLine && svgLine.node;
+      if (!el) return;
+
+      el.setAttribute("stroke-dasharray", arr.join(" "));
+      if (animate) {
+        var speed = Number((this.option.line && this.option.line.animateSpeed) || 1);
+        if (!isFinite(speed) || speed <= 0) speed = 1;
+        el.classList.add("xsp-mind-line-flow");
+        el.style.setProperty("--xsp-line-flow-duration", 1.2 / speed + "s");
+        el.style.setProperty("--xsp-line-dash-total", String(arr[0] + arr[1]));
+      }
+    }
+
+    setLineStyle(patch) {
+      this.option.line = deepMerge(this.option.line || {}, patch || {});
+      this.ensureArrowMarker();
+      this.redrawAllLines();
+      return this;
+    }
+
+    drawLineText(text, x1, y1, x2, y2, child) {
       if (!text) return;
       var tx = x1 + (x2 - x1) / 2;
       var ty = y1 + (y2 - y1) / 2;
+      var fillColor = child && child.linecolor ? child.linecolor : this.option.text.color;
       var label = this.canvas
         .text(String(text))
         .move(tx, ty)
-        .fill(this.option.text.color)
+        .fill(fillColor)
         .font({
           family: "Helvetica, Arial, sans-serif",
           size: this.option.text.size,
@@ -597,7 +677,7 @@
     redrawAllLines() {
       if (!this.canvas) return;
       this.canvas.clear();
-      this.arrowMarker = null;
+      this.clearArrowMarkers();
       this.ensureArrowMarker();
       this.lines = [];
       this.lineTexts = [];

@@ -11,7 +11,7 @@ Author / Copyright: **WUYUANBIAO** · GitHub: [xsttbillng/XSP-Mind-JS](https://g
 
 | 类别 | 能力 |
 |------|------|
-| 渲染 | 树形 JSON、线型 `line/sline/zline`、箭头、连线文字 |
+| 渲染 | 树形 JSON、线型 `line/sline/zline`、箭头、连线文字、虚线流动动画 |
 | 节点 | `x/y/width/height`、`className`、可选 HTML 文本 |
 | 交互 | 拖拽、点击选中、双击改文字、空白处平移、滚轮缩放 |
 | 编辑 API | `addNode` / `updateNode` / `removeNode` / `getData` / `toJSON` |
@@ -66,9 +66,26 @@ npm run demo
 - `selectNode(id)` / `clearSelection()` / `beginEdit(id)`
 - `applyLayout('tree-right' | 'tree-left' | 'tree-down')` / `fitContent()` / `setZoom(z)` / `resetView()`
 - `exportJSON()` / `exportSVG()` / `exportPNG()`
+- `setLineStyle({ dash, animate, animateSpeed, ... })` — 运行时切换连线样式
 - `destroy()`
 
-常用 `option`：`editable`、`dblclickEdit`、`allowHtmlText`、`sanitizeHtml`、`layout`、`pan`、`zoom`、`line.arrow`、`onSelect`、`onChange`。
+常用 `option`：`editable`、`dblclickEdit`、`allowHtmlText`、`sanitizeHtml`、`layout`、`pan`、`zoom`、`line.arrow`、`line.dash`、`line.animate`、`onSelect`、`onChange`。
+
+连线动画示例：
+
+```js
+option: {
+  line: {
+    color: "#00A1E7",
+    width: 1.6,
+    arrow: true,
+    dash: [8, 6],      // true 或 [实线长, 间隔长]
+    animate: "flow",   // true / 'flow' 开启流动
+    animateSpeed: 1.2  // 越大越快
+  }
+}
+// 单条连线覆盖：节点字段 linedash / lineanimate / linecolor / linewidth
+```
 
 > `allowHtmlText: true` 时建议保持 `sanitizeHtml: true`（默认），见 [SECURITY.md](SECURITY.md) 与 [示例5](examples/html-safety.html)。
 
@@ -87,6 +104,8 @@ npm run demo
 | 4 | [examples/events.html](examples/events.html) | [示例4](https://xsttbillng.github.io/XSP-Mind-JS/examples/events.html) | 点击回调 |
 | 5 | [examples/html-safety.html](examples/html-safety.html) | [示例5](https://xsttbillng.github.io/XSP-Mind-JS/examples/html-safety.html) | `sanitizeHtml` XSS 防护 |
 | 6 | [examples/layouts.html](examples/layouts.html) | [示例6](https://xsttbillng.github.io/XSP-Mind-JS/examples/layouts.html) | 三种自动布局对比 |
+| 7 | [examples/animated-lines.html](examples/animated-lines.html) | [示例7](https://xsttbillng.github.io/XSP-Mind-JS/examples/animated-lines.html) | 虚线流动动画 |
+| 8 | [examples/line-styles.html](examples/line-styles.html) | [示例8](https://xsttbillng.github.io/XSP-Mind-JS/examples/line-styles.html) | 线型 + 多色连线 |
 
 发布步骤见 [docs/OPENSOURCE.md](docs/OPENSOURCE.md)。
 

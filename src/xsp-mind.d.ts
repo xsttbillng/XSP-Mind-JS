@@ -12,6 +12,12 @@ export interface XSPMindLineOption {
   color: string;
   width: number;
   arrow?: boolean;
+  /** false 实线；true 或 [8,6] 虚线 */
+  dash?: boolean | number[];
+  /** true / 'flow' 开启虚线流动 */
+  animate?: boolean | "flow";
+  /** 流动速度倍率，越大越快 */
+  animateSpeed?: number;
 }
 
 export interface XSPMindTextOption {
@@ -34,6 +40,14 @@ export interface XSPMindNode {
   className?: string;
   linestyle?: "line" | "sline" | "zline" | string;
   linetext?: string;
+  /** 单条连线颜色，覆盖全局 line.color */
+  linecolor?: string;
+  /** 单条连线粗细，覆盖全局 line.width */
+  linewidth?: number;
+  /** 单条连线虚线，覆盖全局 line.dash */
+  linedash?: boolean | number[];
+  /** 单条连线流动动画，覆盖全局 line.animate */
+  lineanimate?: boolean | "flow";
   items?: XSPMindNode[];
   [key: string]: unknown;
 }
@@ -82,6 +96,7 @@ export declare class XSPMindJS {
   clearSelection(): void;
   beginEdit(id: string | number): void;
   redrawAllLines(): void;
+  setLineStyle(patch: Partial<XSPMindLineOption>): this;
   fitContent(): { width: number; height: number };
   applyLayout(mode: string): this;
   setZoom(z: number): this;

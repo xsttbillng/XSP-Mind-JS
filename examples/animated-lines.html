@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSP-Mind-JS - 连线动画示例</title>
+  <link rel="stylesheet" href="../src/xsp-mind.css" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .layout { display: flex; width: 100%; height: 100%; }
+    .sidebar {
+      width: 240px; flex: 0 0 240px; box-sizing: border-box; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; padding: 16px 12px; overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 14px; color: #111827; }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: block; padding: 10px 12px; border-radius: 8px; color: #334155;
+      text-decoration: none; font-size: 13px; line-height: 1.4; background: transparent;
+    }
+    .nav-item.active { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .toolbar {
+      padding: 10px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      border-bottom: 1px solid #eee; background: #fff;
+    }
+    button {
+      padding: 6px 12px; cursor: pointer; border: 1px solid #cbd5e1;
+      border-radius: 6px; background: #fff; font-size: 13px;
+    }
+    button.active { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; font-weight: 700; }
+    .hint { color: #64748b; font-size: 12px; line-height: 1.5; max-width: 640px; }
+    label { font-size: 13px; color: #334155; display: inline-flex; align-items: center; gap: 6px; }
+    input[type="range"] { width: 120px; }
+    #mind-root-anim { flex: 1; min-height: 0; background: #fafafa; }
+    #mind-svg-anim { width: 1400px; height: 700px; background: #fff; }
+    pre.code {
+      margin: 0; padding: 10px 12px; background: #0b1020; color: #cbd5e1;
+      font-size: 11px; line-height: 1.45; border-top: 1px solid #1e293b; overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>例子列表</h3>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html">← 示例首页</a>
+        <a class="nav-item" href="./index.html">示例1：基础 JSON 渲染</a>
+        <a class="nav-item" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
+        <a class="nav-item" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
+        <a class="nav-item" href="./events.html">示例4：点击触发 JS</a>
+        <a class="nav-item" href="./html-safety.html">示例5：HTML 安全 / sanitize</a>
+        <a class="nav-item" href="./layouts.html">示例6：布局模式对比</a>
+        <a class="nav-item active" href="./animated-lines.html">示例7：连线虚线流动</a>
+        <a class="nav-item" href="./line-styles.html">示例8：线型与多色连线</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div style="padding:12px 14px; font-size:14px; color:#333; border-bottom:1px solid #eee;">
+        示例7：虚线 + 流动动画（<code>line.dash</code> / <code>line.animate</code>）
+      </div>
+
+      <div class="toolbar">
+        <button type="button" id="btnSolid" class="mode-btn active">实线</button>
+        <button type="button" id="btnDash" class="mode-btn">虚线（静止）</button>
+        <button type="button" id="btnFlow" class="mode-btn">虚线流动</button>
+        <label>
+          速度
+          <input type="range" id="speedRange" min="0.5" max="3" step="0.1" value="1" />
+          <span id="speedVal">1.0×</span>
+        </label>
+        <span class="hint">节点可单独设置 <code>linedash</code> / <code>lineanimate</code> 覆盖全局</span>
+      </div>
+
+      <div id="mind-root-anim">
+        <svg id="mind-svg-anim"></svg>
+      </div>
+
+      <pre class="code" id="codeHint">option.line = { dash: false, animate: false }</pre>
+    </main>
+  </div>
+
+  <script src="../vendor/svg.min.js"></script>
+  <script src="../src/xsp-mind.js"></script>
+  <script>
+    const data = [
+      {
+        text: "数据入口",
+        id: "root",
+        linestyle: "sline",
+        items: [
+          {
+            text: "采集（流动）",
+            id: "ingest",
+            linestyle: "sline",
+            lineanimate: true,
+            items: [
+              { text: "日志流", id: "log", linestyle: "sline", lineanimate: true, items: [] },
+              { text: "指标流", id: "metric", linestyle: "sline", lineanimate: true, items: [] }
+            ]
+          },
+          {
+            text: "处理（虚线静止）",
+            id: "proc",
+            linestyle: "zline",
+            linedash: [10, 6],
+            lineanimate: false,
+            items: [
+              { text: "清洗", id: "clean", linestyle: "zline", linedash: [10, 6], items: [] }
+            ]
+          },
+          {
+            text: "输出",
+            id: "out",
+            linestyle: "line",
+            items: [
+              { text: "报表", id: "report", linestyle: "line", items: [] }
+            ]
+          }
+        ]
+      }
+    ];
+
+    const codeHint = document.getElementById("codeHint");
+    const speedRange = document.getElementById("speedRange");
+    const speedVal = document.getElementById("speedVal");
+    const modeBtns = document.querySelectorAll(".mode-btn");
+
+    const app = new XSPMindJS("mind-root-anim", "mind-svg-anim");
+    app.initflow({
+      option: {
+        box: { width: 140, height: 40 },
+        line: { color: "#00A1E7", width: 1.6, arrow: true, dash: false, animate: false, animateSpeed: 1 },
+        layout: "tree-right",
+        layoutGap: { x: 200, y: 28 },
+        padding: 48,
+        ismove: true,
+        pan: true,
+        zoom: true
+      },
+      data: JSON.parse(JSON.stringify(data))
+    });
+    app.fitContent();
+    app.resetView();
+
+    function setModeBtn(activeId) {
+      modeBtns.forEach((btn) => btn.classList.toggle("active", btn.id === activeId));
+    }
+
+    function applyGlobalLine(patch, hint) {
+      app.setLineStyle(patch);
+      codeHint.textContent = hint;
+    }
+
+    document.getElementById("btnSolid").addEventListener("click", () => {
+      setModeBtn("btnSolid");
+      applyGlobalLine(
+        { dash: false, animate: false },
+        "option.line = { dash: false, animate: false }"
+      );
+    });
+
+    document.getElementById("btnDash").addEventListener("click", () => {
+      setModeBtn("btnDash");
+      applyGlobalLine(
+        { dash: [8, 6], animate: false },
+        "option.line = { dash: [8, 6], animate: false }"
+      );
+    });
+
+    document.getElementById("btnFlow").addEventListener("click", () => {
+      setModeBtn("btnFlow");
+      applyGlobalLine(
+        { dash: [8, 6], animate: "flow" },
+        "option.line = { dash: [8, 6], animate: 'flow', animateSpeed: " + speedRange.value + " }"
+      );
+    });
+
+    speedRange.addEventListener("input", () => {
+      const v = Number(speedRange.value);
+      speedVal.textContent = v.toFixed(1) + "×";
+      app.setLineStyle({ animateSpeed: v });
+      if (document.getElementById("btnFlow").classList.contains("active")) {
+        codeHint.textContent =
+          "option.line = { dash: [8, 6], animate: 'flow', animateSpeed: " + v + " }";
+      }
+    });
+  </script>
+</body>
+</html>

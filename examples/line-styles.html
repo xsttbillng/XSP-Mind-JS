@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSP-Mind-JS - 线型与多色连线</title>
+  <link rel="stylesheet" href="../src/xsp-mind.css" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .layout { display: flex; width: 100%; height: 100%; }
+    .sidebar {
+      width: 240px; flex: 0 0 240px; box-sizing: border-box; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; padding: 16px 12px; overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 14px; color: #111827; }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: block; padding: 10px 12px; border-radius: 8px; color: #334155;
+      text-decoration: none; font-size: 13px; line-height: 1.4; background: transparent;
+    }
+    .nav-item.active { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+    .toolbar {
+      padding: 10px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      border-bottom: 1px solid #eee; background: #fff;
+    }
+    .toolbar-group {
+      display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      padding-right: 10px; margin-right: 2px; border-right: 1px solid #e5e7eb;
+    }
+    .toolbar-group:last-child { border-right: 0; }
+    .toolbar-group label { font-size: 12px; color: #64748b; margin-right: 2px; }
+    button {
+      padding: 6px 12px; cursor: pointer; border: 1px solid #cbd5e1;
+      border-radius: 6px; background: #fff; font-size: 13px;
+    }
+    button.active { background: #dbeafe; border-color: #3b82f6; color: #1d4ed8; font-weight: 700; }
+    button.swatch { min-width: 72px; }
+    button.swatch[data-color="#2563eb"] { border-color: #2563eb; color: #2563eb; }
+    button.swatch[data-color="#dc2626"] { border-color: #dc2626; color: #dc2626; }
+    button.swatch[data-color="#94a3b8"] { border-color: #94a3b8; color: #64748b; }
+    .legend {
+      display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 12px;
+      background: #f8fafc; border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #475569;
+    }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    #mind-root-lines { flex: 1; min-height: 0; background: #fafafa; }
+    #mind-svg-lines { width: 1500px; height: 760px; background: #fff; }
+    pre.code {
+      margin: 0; padding: 10px 12px; background: #0b1020; color: #cbd5e1;
+      font-size: 11px; line-height: 1.45; border-top: 1px solid #1e293b; overflow: auto;
+      max-height: 120px;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>例子列表</h3>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html">← 示例首页</a>
+        <a class="nav-item" href="./index.html">示例1：基础 JSON 渲染</a>
+        <a class="nav-item" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
+        <a class="nav-item" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
+        <a class="nav-item" href="./events.html">示例4：点击触发 JS</a>
+        <a class="nav-item" href="./html-safety.html">示例5：HTML 安全 / sanitize</a>
+        <a class="nav-item" href="./layouts.html">示例6：布局模式对比</a>
+        <a class="nav-item" href="./animated-lines.html">示例7：连线虚线流动</a>
+        <a class="nav-item active" href="./line-styles.html">示例8：线型与多色连线</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div style="padding:12px 14px; font-size:14px; color:#333; border-bottom:1px solid #eee;">
+        示例8：切换线型（直线 / 曲线 / 折线）+ 多色连线（蓝 / 红 / 灰）+ 虚线流动
+      </div>
+
+      <div class="legend">
+        <span><i class="dot" style="background:#2563eb"></i>主链路 · 蓝色 · 曲线流动</span>
+        <span><i class="dot" style="background:#dc2626"></i>告警链路 · 红色 · 折线流动</span>
+        <span><i class="dot" style="background:#94a3b8"></i>备用链路 · 灰色 · 虚线静止</span>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <label>线型</label>
+          <button type="button" class="style-btn" data-style="mixed">混合（默认）</button>
+          <button type="button" class="style-btn" data-style="line">全部直线</button>
+          <button type="button" class="style-btn" data-style="sline">全部曲线</button>
+          <button type="button" class="style-btn" data-style="zline">全部折线</button>
+        </div>
+        <div class="toolbar-group">
+          <label>颜色</label>
+          <button type="button" class="color-btn active" data-preset="multi">多色混合</button>
+          <button type="button" class="color-btn" data-preset="blue">全蓝</button>
+          <button type="button" class="color-btn" data-preset="red">全红</button>
+          <button type="button" class="color-btn" data-preset="gray">全灰</button>
+        </div>
+        <div class="toolbar-group">
+          <label>动画</label>
+          <button type="button" id="btnFlowOn" class="anim-btn active">流动开</button>
+          <button type="button" id="btnFlowOff" class="anim-btn">流动关</button>
+        </div>
+        <button type="button" id="btnReset">恢复默认</button>
+      </div>
+
+      <div id="mind-root-lines">
+        <svg id="mind-svg-lines"></svg>
+      </div>
+      <pre class="code" id="codeHint">// 节点字段：linestyle / linecolor / linedash / lineanimate</pre>
+    </main>
+  </div>
+
+  <script src="../vendor/svg.min.js"></script>
+  <script src="../src/xsp-mind.js"></script>
+  <script>
+    const COLORS = {
+      blue: ["#2563eb", "#3b82f6", "#60a5fa"],
+      red: ["#dc2626", "#ef4444", "#f87171"],
+      gray: ["#64748b", "#94a3b8", "#cbd5e1"]
+    };
+
+    function createBaseData() {
+      return [
+        {
+          text: "调度中心",
+          id: "root",
+          linestyle: "sline",
+          linecolor: "#334155",
+          items: [
+            {
+              text: "主链路",
+              id: "blue-branch",
+              linestyle: "sline",
+              linecolor: COLORS.blue[0],
+              linedash: [8, 6],
+              lineanimate: true,
+              items: [
+                {
+                  text: "服务 A",
+                  id: "svc-a",
+                  linestyle: "sline",
+                  linecolor: COLORS.blue[1],
+                  linedash: [8, 6],
+                  lineanimate: true,
+                  items: []
+                },
+                {
+                  text: "服务 B",
+                  id: "svc-b",
+                  linestyle: "sline",
+                  linecolor: COLORS.blue[2],
+                  linedash: [8, 6],
+                  lineanimate: true,
+                  items: []
+                }
+              ]
+            },
+            {
+              text: "告警链路",
+              id: "red-branch",
+              linestyle: "zline",
+              linecolor: COLORS.red[0],
+              linedash: [10, 5],
+              lineanimate: true,
+              items: [
+                {
+                  text: "告警中心",
+                  id: "alert",
+                  linestyle: "zline",
+                  linecolor: COLORS.red[1],
+                  linedash: [10, 5],
+                  lineanimate: true,
+                  items: []
+                },
+                {
+                  text: "值班通知",
+                  id: "notify",
+                  linestyle: "zline",
+                  linecolor: COLORS.red[2],
+                  linedash: [10, 5],
+                  lineanimate: true,
+                  items: []
+                }
+              ]
+            },
+            {
+              text: "备用链路",
+              id: "gray-branch",
+              linestyle: "line",
+              linecolor: COLORS.gray[0],
+              linedash: [6, 5],
+              lineanimate: false,
+              items: [
+                {
+                  text: "冷备节点",
+                  id: "cold",
+                  linestyle: "line",
+                  linecolor: COLORS.gray[1],
+                  linedash: [6, 5],
+                  lineanimate: false,
+                  items: []
+                }
+              ]
+            }
+          ]
+        }
+      ];
+    }
+
+    const STYLE_PRESETS = {
+      mixed: { blue: "sline", red: "zline", gray: "line" },
+      line: { blue: "line", red: "line", gray: "line" },
+      sline: { blue: "sline", red: "sline", gray: "sline" },
+      zline: { blue: "zline", red: "zline", gray: "zline" }
+    };
+
+    const BRANCH_IDS = {
+      blue: ["blue-branch", "svc-a", "svc-b"],
+      red: ["red-branch", "alert", "notify"],
+      gray: ["gray-branch", "cold"]
+    };
+
+    let stylePreset = "mixed";
+    let colorPreset = "multi";
+    let flowEnabled = true;
+
+    const codeHint = document.getElementById("codeHint");
+    const app = new XSPMindJS("mind-root-lines", "mind-svg-lines");
+
+    function cloneData() {
+      return JSON.parse(JSON.stringify(createBaseData()));
+    }
+
+    function walkNodes(list, fn) {
+      (list || []).forEach((node) => {
+        fn(node);
+        if (Array.isArray(node.items) && node.items.length) walkNodes(node.items, fn);
+      });
+    }
+
+    function findNode(list, id) {
+      let hit = null;
+      walkNodes(list, (n) => {
+        if (String(n.id) === String(id)) hit = n;
+      });
+      return hit;
+    }
+
+    function applyStylePreset(data, presetKey) {
+      const preset = STYLE_PRESETS[presetKey] || STYLE_PRESETS.mixed;
+      walkNodes(data, (node) => {
+        if (BRANCH_IDS.blue.includes(node.id)) node.linestyle = preset.blue;
+        else if (BRANCH_IDS.red.includes(node.id)) node.linestyle = preset.red;
+        else if (BRANCH_IDS.gray.includes(node.id)) node.linestyle = preset.gray;
+        else if (node.id === "root") node.linestyle = preset.blue;
+      });
+    }
+
+    function applyColorPreset(data, presetKey) {
+      if (presetKey === "multi") return;
+      const palette = COLORS[presetKey];
+      if (!palette) return;
+      walkNodes(data, (node) => {
+        if (node.id === "root") {
+          node.linecolor = "#334155";
+          return;
+        }
+        if (BRANCH_IDS.blue.includes(node.id)) {
+          node.linecolor = palette[BRANCH_IDS.blue.indexOf(node.id) % palette.length];
+        } else if (BRANCH_IDS.red.includes(node.id)) {
+          node.linecolor = palette[BRANCH_IDS.red.indexOf(node.id) % palette.length];
+        } else if (BRANCH_IDS.gray.includes(node.id)) {
+          node.linecolor = palette[BRANCH_IDS.gray.indexOf(node.id) % palette.length];
+        }
+      });
+    }
+
+    function applyFlowPreset(data, enabled) {
+      walkNodes(data, (node) => {
+        if (node.id === "root") return;
+        if (BRANCH_IDS.gray.includes(node.id)) {
+          node.lineanimate = false;
+          return;
+        }
+        node.lineanimate = enabled;
+        if (enabled && !node.linedash) node.linedash = [8, 6];
+      });
+    }
+
+    function refreshHint() {
+      const blue = findNode(app.data, "blue-branch");
+      const red = findNode(app.data, "red-branch");
+      const gray = findNode(app.data, "gray-branch");
+      codeHint.textContent =
+        "{ blue: linestyle='" + (blue && blue.linestyle) +
+        "', linecolor='" + (blue && blue.linecolor) +
+        "' }, { red: linestyle='" + (red && red.linestyle) +
+        "', linecolor='" + (red && red.linecolor) +
+        "' }, { gray: linestyle='" + (gray && gray.linestyle) +
+        "', linecolor='" + (gray && gray.linecolor) +
+        "', lineanimate=" + (gray && gray.lineanimate) + " }";
+    }
+
+    function renderCurrent() {
+      const data = cloneData();
+      if (colorPreset !== "multi") applyColorPreset(data, colorPreset);
+      applyStylePreset(data, stylePreset);
+      applyFlowPreset(data, flowEnabled);
+      app.option.line.animate = flowEnabled ? "flow" : false;
+      app.setData(data);
+      app.fitContent();
+      app.resetView();
+      refreshHint();
+    }
+
+    app.initflow({
+      option: {
+        box: { width: 130, height: 40 },
+        line: { color: "#00A1E7", width: 1.8, arrow: true, dash: [8, 6], animate: "flow", animateSpeed: 1 },
+        layout: "tree-right",
+        layoutGap: { x: 190, y: 22 },
+        padding: 48,
+        ismove: true,
+        pan: true,
+        zoom: true
+      },
+      data: cloneData()
+    });
+    renderCurrent();
+
+    function setActive(groupSelector, activeEl) {
+      document.querySelectorAll(groupSelector).forEach((el) => {
+        el.classList.toggle("active", el === activeEl);
+      });
+    }
+
+    document.querySelectorAll(".style-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        stylePreset = btn.dataset.style;
+        setActive(".style-btn", btn);
+        renderCurrent();
+      });
+    });
+
+    document.querySelectorAll(".color-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        colorPreset = btn.dataset.preset;
+        setActive(".color-btn", btn);
+        renderCurrent();
+      });
+    });
+
+    document.getElementById("btnFlowOn").addEventListener("click", (e) => {
+      flowEnabled = true;
+      setActive(".anim-btn", e.currentTarget);
+      renderCurrent();
+    });
+
+    document.getElementById("btnFlowOff").addEventListener("click", (e) => {
+      flowEnabled = false;
+      setActive(".anim-btn", e.currentTarget);
+      renderCurrent();
+    });
+
+    document.getElementById("btnReset").addEventListener("click", () => {
+      stylePreset = "mixed";
+      colorPreset = "multi";
+      flowEnabled = true;
+      setActive(".style-btn", document.querySelector('.style-btn[data-style="mixed"]'));
+      setActive(".color-btn", document.querySelector('.color-btn[data-preset="multi"]'));
+      setActive(".anim-btn", document.getElementById("btnFlowOn"));
+      renderCurrent();
+    });
+
+    setActive(".style-btn", document.querySelector('.style-btn[data-style="mixed"]'));
+  </script>
+</body>
+</html>
