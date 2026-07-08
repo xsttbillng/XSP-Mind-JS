@@ -1,0 +1,44 @@
+{
+  "name": "xsp-mind-js",
+  "version": "0.2.0",
+  "description": "Lightweight JSON-driven flowchart / mindmap display library for embedded docs and marketing pages.",
+  "keywords": [
+    "mindmap",
+    "flowchart",
+    "svg",
+    "json",
+    "lightweight",
+    "diagram"
+  ],
+  "license": "MIT",
+  "author": "WUYUANBIAO",
+  "homepage": "https://github.com/xsttbillng/XSP-Mind-JS#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xsttbillng/XSP-Mind-JS.git"
+  },
+  "bugs": {
+    "url": "https://github.com/xsttbillng/XSP-Mind-JS/issues"
+  },
+  "main": "src/xsp-mind.js",
+  "types": "src/xsp-mind.d.ts",
+  "style": "src/xsp-mind.css",
+  "files": [
+    "src",
+    "examples",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md"
+  ],
+  "scripts": {
+    "demo": "npx --yes serve . -l 5173",
+    "pages:check": "node -e \"console.log('Open http://localhost:5173/ after npm run demo')\""
+  },
+  "peerDependencies": {
+    "@svgdotjs/svg.js": "^3.2.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=16"
+  }
+}

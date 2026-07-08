@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSP-Mind-JS - 节点样式示例</title>
+  <link rel="stylesheet" href="../src/xsp-mind.css" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .layout { display: flex; width: 100%; height: 100%; }
+    .sidebar {
+      width: 240px; flex: 0 0 240px; box-sizing: border-box; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; padding: 16px 12px; overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 14px; color: #111827; }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: block; padding: 10px 12px; border-radius: 8px; color: #334155;
+      text-decoration: none; font-size: 13px; line-height: 1.4; background: transparent;
+    }
+    .nav-item.active { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .main { flex: 1; min-width: 0; }
+    #mind-root-styled { width: 100%; height: 70vh; background: #fafafa; position: relative; overflow: hidden; }
+    #mind-svg-styled { width: 2200px; height: 900px; background: #fff; }
+    .toolbar { padding: 10px; display: flex; gap: 10px; align-items: center; }
+    button { padding: 6px 10px; cursor: pointer; }
+
+    /* 主题A */
+    body.theme-a .status-done { background: #e9ffef; border-color: #42b983; }
+    body.theme-a .status-warn { background: #fff7e6; border-color: #f5b400; }
+    body.theme-a .status-todo { background: #eef3ff; border-color: #4b7fea; }
+
+    /* 主题B */
+    body.theme-b .status-done { background: #0b2a16; border-color: #38d9a9; color: #d3ffe9; }
+    body.theme-b .status-warn { background: #2a2408; border-color: #ffd43b; color: #fff3c4; }
+    body.theme-b .status-todo { background: #0b1430; border-color: #74c0fc; color: #d8f1ff; }
+
+    /* 主题C */
+    body.theme-c .status-done { background: #f3f0ff; border-color: #845ef7; color: #3b2f78; }
+    body.theme-c .status-warn { background: #fff0f6; border-color: #e64980; color: #7a2142; }
+    body.theme-c .status-todo { background: #eef7ff; border-color: #228be6; color: #1b4f7d; }
+
+    /* 节点内部内容排版 */
+    .node-row { display: flex; align-items: center; gap: 8px; }
+    .node-idx { font-weight: 700; color: inherit; }
+    .node-sub { margin-top: 6px; font-size: 12px; opacity: 0.85; }
+
+    .ico {
+      width: 22px; height: 22px; border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(0, 161, 231, 0.08);
+      border: 1px solid rgba(0, 161, 231, 0.25);
+      flex: 0 0 auto;
+    }
+    body.theme-b .ico {
+      background: rgba(116, 192, 252, 0.12);
+      border-color: rgba(116, 192, 252, 0.35);
+    }
+    body.theme-c .ico {
+      background: rgba(132, 94, 247, 0.10);
+      border-color: rgba(132, 94, 247, 0.30);
+    }
+
+    .ico svg { display: block; }
+    .node-sub em { font-style: normal; color: #00A1E7; }
+    body.theme-b .node-sub em { color: #74c0fc; }
+    body.theme-c .node-sub em { color: #845ef7; }
+
+    /* 图标状态用 className（示例：done/warn/todo） */
+    .status-done .ico { border-color: #42b983; }
+    .status-warn .ico { border-color: #f5b400; }
+    .status-todo .ico { border-color: #4b7fea; }
+  </style>
+</head>
+<body class="theme-a">
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>例子列表</h3>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html">← 示例首页</a>
+        <a class="nav-item" href="./index.html">示例1：基础 JSON 渲染</a>
+        <a class="nav-item" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
+        <a class="nav-item active" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
+        <a class="nav-item" href="./events.html">示例4：点击触发 JS</a>
+      </nav>
+    </aside>
+    <main class="main">
+  <div style="padding:12px 14px; font-size:14px; color:#333; font-family: Arial, sans-serif; border-bottom:1px solid #eee;">
+    示例3：节点 className + 高度/下标/图标状态展示（CSS 切换）
+  </div>
+  <div class="toolbar">
+    <button id="btnThemeA">主题A</button>
+    <button id="btnThemeB">主题B</button>
+    <button id="btnThemeC">主题C（粗线）</button>
+    <span style="color:#666;font-size:13px;">节点通过 data 的 `className` 绑定不同 CSS。</span>
+  </div>
+
+  <div id="mind-root-styled">
+    <svg id="mind-svg-styled"></svg>
+  </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2/dist/svg.min.js"></script>
+  <script src="../src/xsp-mind.js"></script>
+  <script>
+    const data = [
+      {
+        text: "根",
+        id: "root",
+        x: 120,
+        y: 260,
+        width: 140,
+        height: 44,
+        linestyle: "sline",
+        className: "status-todo",
+        items: [
+          {
+            text:
+              "<div class='node-row'>" +
+              "<span class='node-idx'>1<sub>A</sub></span>" +
+              "<span class='ico'>" +
+              "<svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#00A1E7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>" +
+              "</span>" +
+              "<span style='font-weight:700;'>完成</span>" +
+              "</div>" +
+              "<div class='node-sub'>进度：<em>100%</em></div>",
+            id: "n-done",
+            x: 430,
+            y: 120,
+            width: 260,
+            height: 90,
+            linestyle: "sline",
+            className: "status-done",
+            items: []
+          },
+          {
+            text:
+              "<div class='node-row'>" +
+              "<span class='node-idx'>2<sub>B</sub></span>" +
+              "<span class='ico'>" +
+              "<svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#00A1E7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'/><line x1='12' y1='9' x2='12' y2='13'/><line x1='12' y1='17' x2='12.01' y2='17'/></svg>" +
+              "</span>" +
+              "<span style='font-weight:700;'>风险</span>" +
+              "</div>" +
+              "<div class='node-sub'>状态：<em>待确认</em></div>",
+            id: "n-warn",
+            x: 430,
+            y: 250,
+            width: 260,
+            height: 90,
+            linestyle: "zline",
+            className: "status-warn",
+            items: []
+          },
+          {
+            text:
+              "<div class='node-row'>" +
+              "<span class='node-idx'>3<sub>C</sub></span>" +
+              "<span class='ico'>" +
+              "<svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='#00A1E7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/><line x1='12' y1='8' x2='12' y2='12'/><line x1='12' y1='16' x2='12.01' y2='16'/></svg>" +
+              "</span>" +
+              "<span style='font-weight:700;'>计划</span>" +
+              "</div>" +
+              "<div class='node-sub'>优先级：<em>中</em></div>",
+            id: "n-todo",
+            x: 430,
+            y: 380,
+            width: 260,
+            height: 90,
+            linestyle: "sline",
+            className: "status-todo",
+            items: []
+          }
+        ]
+      }
+    ];
+
+    const app = new XSPMindJS("mind-root-styled", "mind-svg-styled");
+    app.initflow({
+      option: {
+        box: { width: 140, height: 44 },
+        line: { color: "#00A1E7", width: 1.2 },
+        text: { color: "#00A1E7", size: 12 },
+        ismove: true,
+        editable: false,
+        allowHtmlText: true
+      },
+      data
+    });
+
+    function setTheme(themeName, lineWidth, lineColor) {
+      document.body.classList.remove("theme-a", "theme-b", "theme-c");
+      document.body.classList.add(themeName);
+      app.option.line.width = lineWidth;
+      app.option.line.color = lineColor;
+      app.redrawAllLines();
+    }
+
+    document.getElementById("btnThemeA").addEventListener("click", () => {
+      setTheme("theme-a", 1.2, "#00A1E7");
+    });
+    document.getElementById("btnThemeB").addEventListener("click", () => {
+      setTheme("theme-b", 1.2, "#00A1E7");
+    });
+    document.getElementById("btnThemeC").addEventListener("click", () => {
+      setTheme("theme-c", 3.2, "#845EF7");
+    });
+  </script>
+</body>
+</html>
+

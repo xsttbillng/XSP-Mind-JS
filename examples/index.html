@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSP-Mind-JS Demo</title>
+  <link rel="stylesheet" href="../src/xsp-mind.css" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .layout { display: flex; width: 100%; height: 100%; }
+    .sidebar {
+      width: 240px; flex: 0 0 240px; box-sizing: border-box; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; padding: 16px 12px; overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 14px; color: #111827; }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: block; padding: 10px 12px; border-radius: 8px; color: #334155;
+      text-decoration: none; font-size: 13px; line-height: 1.4; background: transparent;
+    }
+    .nav-item.active { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    #mind-root { width: 100%; height: 100%; background: #fafafa; }
+    #mind-svg { width: 1800px; height: 1000px; background: #fff; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>例子列表</h3>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html">← 示例首页</a>
+        <a class="nav-item active" href="./index.html">示例1：基础 JSON 渲染</a>
+        <a class="nav-item" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
+        <a class="nav-item" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
+        <a class="nav-item" href="./events.html">示例4：点击触发 JS</a>
+      </nav>
+    </aside>
+    <main class="main">
+  <div style="padding:12px 14px; font-size:14px; color:#333; font-family: Arial, sans-serif; border-bottom:1px solid #eee;">
+    示例1：基础 JSON 渲染（流程图/思维导图 + 可拖拽；空白处拖动画布，滚轮缩放）
+  </div>
+  <div id="mind-root">
+    <svg id="mind-svg"></svg>
+  </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2/dist/svg.min.js"></script>
+  <script src="../src/xsp-mind.js"></script>
+  <script>
+    // 由于你是用 file:// 双击打开，这里不再 fetch 本地 JSON（浏览器会拦截本地读取）。
+    // 直接内嵌数据，保证示例可直接运行。
+    const data = [
+      {
+        "text": "XSP-Mind-JS",
+        "id": "root",
+        "x": 40,
+        "y": 150,
+        "items": [
+          {
+            "text": "流程图",
+            "id": "flow",
+            "x": 320,
+            "y": 80,
+            "linestyle": "sline",
+            "linetext": "支持",
+            "items": [
+              {
+                "text": "可传入 JSON",
+                "id": "flow-json",
+                "x": 600,
+                "y": 60,
+                "linestyle": "line",
+                "items": []
+              },
+              {
+                "text": "可拖拽节点",
+                "id": "flow-drag",
+                "x": 600,
+                "y": 130,
+                "linestyle": "zline",
+                "items": []
+              }
+            ]
+          },
+          {
+            "text": "思维导图",
+            "id": "mind",
+            "x": 320,
+            "y": 220,
+            "linestyle": "zline",
+            "items": [
+              {
+                "text": "节点可自定义尺寸",
+                "id": "mind-size",
+                "x": 600,
+                "y": 200,
+                "width": 180,
+                "height": 40,
+                "linestyle": "sline",
+                "items": []
+              }
+            ]
+          },
+          {
+            "text": "<div style='display:flex;align-items:center;gap:8px;'><svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2300A1E7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2v20'/><path d='M2 12h20'/></svg><div style='display:flex;flex-direction:column;line-height:1.1;'><span style='font-weight:700;color:#333;'>富内容节点</span><a href='https://www.wikipedia.org' target='_blank' rel='noreferrer' style='color:#00A1E7;text-decoration:none;'>点我跳转</a></div></div>",
+            "id": "rich",
+            "x": 320,
+            "y": 330,
+            "width": 260,
+            "height": 54,
+            "linestyle": "sline",
+            "items": []
+          }
+        ]
+      }
+    ];
+
+    const app = new XSPMindJS("mind-root", "mind-svg");
+    app.initflow({
+      option: {
+        box: { width: 140, height: 36 },
+        line: { color: "#00A1E7", width: 1.2 },
+        text: { color: "#00A1E7", size: 12 },
+        ismove: true,
+        pan: true,
+        zoom: true,
+        // 演示富内容节点（div/a/svg 等）
+        allowHtmlText: true
+      },
+      data
+    });
+    window.xspMindDemo = app;
+  </script>
+</body>
+</html>

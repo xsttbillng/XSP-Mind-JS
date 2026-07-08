@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSP-Mind-JS - 点击事件示例</title>
+  <link rel="stylesheet" href="../src/xsp-mind.css" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .layout { display: flex; width: 100%; height: 100%; }
+    .sidebar {
+      width: 240px; flex: 0 0 240px; box-sizing: border-box; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; padding: 16px 12px; overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 14px; color: #111827; }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: block; padding: 10px 12px; border-radius: 8px; color: #334155;
+      text-decoration: none; font-size: 13px; line-height: 1.4; background: transparent;
+    }
+    .nav-item.active { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .main { flex: 1; min-width: 0; }
+    .wrap { width: 100%; height: 100%; display: flex; flex-direction: column; }
+    #mind-root-events { width: 100%; height: 60vh; background: #fafafa; position: relative; overflow: hidden; }
+    #mind-svg-events { width: 2000px; height: 900px; background: #fff; }
+    .panel { padding: 10px; border-top: 1px solid #eee; }
+    .row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .k { font-weight: 700; }
+    code { color: #00A1E7; }
+    pre { margin: 8px 0 0 0; padding: 8px; background: #0b1020; color: #e6e6e6; border-radius: 6px; overflow: auto; max-height: 28vh; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>例子列表</h3>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html">← 示例首页</a>
+        <a class="nav-item" href="./index.html">示例1：基础 JSON 渲染</a>
+        <a class="nav-item" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
+        <a class="nav-item" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
+        <a class="nav-item active" href="./events.html">示例4：点击触发 JS</a>
+      </nav>
+    </aside>
+    <main class="main">
+  <div class="wrap">
+    <div style="padding:12px 14px; font-size:14px; color:#333; font-family: Arial, sans-serif; border-bottom:1px solid #eee;">
+      示例4：点击触发 JS（记录点击时间）
+    </div>
+    <div class="toolbar" style="padding:10px;display:flex;gap:10px;align-items:center;">
+      <span>点击节点会触发 JS 函数，并记录点击时间。</span>
+    </div>
+    <div id="mind-root-events">
+      <svg id="mind-svg-events"></svg>
+    </div>
+
+    <div class="panel">
+      <div class="row">
+        <div>最近点击：<span id="lastClick" class="k">无</span></div>
+        <div>节点 id：<span id="lastId" class="k">-</span></div>
+        <div>节点内容：<span id="lastText" class="k">-</span></div>
+      </div>
+      <pre id="log">log...</pre>
+    </div>
+  </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2/dist/svg.min.js"></script>
+  <script src="../src/xsp-mind.js"></script>
+  <script>
+    const data = [
+      {
+        text: "root",
+        id: "root",
+        x: 100,
+        y: 200,
+        width: 160,
+        height: 44,
+        linestyle: "sline",
+        items: [
+          { text: "节点 1", id: "n1", x: 420, y: 140, width: 180, height: 44, linestyle: "sline", items: [] },
+          { text: "节点 2", id: "n2", x: 420, y: 260, width: 180, height: 70, linestyle: "zline", items: [] }
+        ]
+      }
+    ];
+
+    const lastClick = document.getElementById("lastClick");
+    const lastId = document.getElementById("lastId");
+    const lastText = document.getElementById("lastText");
+    const logEl = document.getElementById("log");
+
+    function onNodeClick(node, time) {
+      if (!node) {
+        lastClick.textContent = time.toLocaleString();
+        lastId.textContent = "-";
+        lastText.textContent = "(取消选中)";
+        return;
+      }
+      lastClick.textContent = time.toLocaleString();
+      lastId.textContent = node.id;
+      lastText.textContent = (node.text || "").toString().slice(0, 80);
+
+      const line = "[" + time.toLocaleTimeString() + "] click " + node.id + " (" + node.text + ")";
+      logEl.textContent = line + "\n" + logEl.textContent;
+    }
+
+    const app = new XSPMindJS("mind-root-events", "mind-svg-events");
+    app.initflow({
+      option: {
+        box: { width: 160, height: 44 },
+        line: { color: "#00A1E7", width: 1.2 },
+        text: { color: "#00A1E7", size: 12 },
+        ismove: true,
+        editable: true,
+        onSelect: (node) => {
+          const time = new Date();
+          onNodeClick(node, time);
+        }
+      },
+      data
+    });
+  </script>
+</body>
+</html>
+
