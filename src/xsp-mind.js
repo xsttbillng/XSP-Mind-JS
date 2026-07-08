@@ -54,6 +54,7 @@
       if (!this.svgEl) throw new Error("svg #" + svgId + " not found");
 
       this.container.classList.add("xsp-mind-root");
+      this.view = { x: 0, y: 0, zoom: 1 };
       this.ensureStage();
 
       this.option = Object.assign({}, DEFAULT_OPTION);
@@ -67,7 +68,6 @@
       this.selectedNodeId = null;
       this.editingId = null;
 
-      this.view = { x: 0, y: 0, zoom: 1 };
       this.drag = { active: false, nodeId: null, startX: 0, startY: 0, originX: 0, originY: 0, moved: false };
       this.panDrag = { active: false, startX: 0, startY: 0, originX: 0, originY: 0 };
 
@@ -522,6 +522,7 @@
 
     applyViewTransform() {
       if (!this.stage) return;
+      if (!this.view) this.view = { x: 0, y: 0, zoom: 1 };
       var z = this.view.zoom || 1;
       this.stage.style.transform =
         "translate(" + this.view.x + "px," + this.view.y + "px) scale(" + z + ")";
