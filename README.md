@@ -25,7 +25,7 @@ Author / Copyright: **WUYUANBIAO** · GitHub: [xsttbillng/XSP-Mind-JS](https://g
 
 ```html
 <link rel="stylesheet" href="src/xsp-mind.css" />
-<script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2/dist/svg.min.js"></script>
+<script src="vendor/svg.min.js"></script>
 <script src="src/xsp-mind.js"></script>
 ```
 
@@ -73,13 +73,17 @@ npm run demo
 
 ## 示例
 
-| # | 页面 | 说明 |
-|---|------|------|
-| — | [index.html](index.html) | 示例入口 |
-| 1 | [examples/index.html](examples/index.html) | 基础渲染 + 富节点 |
-| 2 | [examples/editable.html](examples/editable.html) | 增删 / 双击编辑 / 布局 / 导出 |
-| 3 | [examples/styled-nodes.html](examples/styled-nodes.html) | className 主题（含粗线） |
-| 4 | [examples/events.html](examples/events.html) | 点击回调 |
+在线示例入口：
+
+- [GitHub Pages 首页](https://xsttbillng.github.io/XSP-Mind-JS/)
+
+| # | 仓库文件 | 在线预览 | 说明 |
+|---|----------|----------|------|
+| — | [index.html](index.html) | [首页](https://xsttbillng.github.io/XSP-Mind-JS/) | 示例入口 |
+| 1 | [examples/index.html](examples/index.html) | [示例1](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 基础渲染 + 富节点 |
+| 2 | [examples/editable.html](examples/editable.html) | [示例2](https://xsttbillng.github.io/XSP-Mind-JS/examples/editable.html) | 增删 / 双击编辑 / 布局 / 导出 |
+| 3 | [examples/styled-nodes.html](examples/styled-nodes.html) | [示例3](https://xsttbillng.github.io/XSP-Mind-JS/examples/styled-nodes.html) | `className` 主题（含粗线） |
+| 4 | [examples/events.html](examples/events.html) | [示例4](https://xsttbillng.github.io/XSP-Mind-JS/examples/events.html) | 点击回调 |
 
 发布步骤见 [docs/OPENSOURCE.md](docs/OPENSOURCE.md)。
 

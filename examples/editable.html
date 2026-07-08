@@ -68,9 +68,15 @@
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.2/dist/svg.min.js"></script>
+  <script src="../vendor/svg.min.js"></script>
   <script src="../src/xsp-mind.js"></script>
   <script>
+    if (!window.SVG) {
+      document.getElementById("jsonOut").textContent =
+        "错误：SVG.js 未加载。请确认 ../vendor/svg.min.js 存在，并重新部署 GitHub Pages。";
+      throw new Error("SVG.js not loaded");
+    }
+
     const initData = [
       {
         "text": "根节点",
@@ -90,6 +96,7 @@
     const selectedEl = document.getElementById("selected");
 
     const app = new XSPMindJS("mind-root-edit", "mind-svg-edit");
+    try {
     app.initflow({
       option: {
         box: { width: 160, height: 40 },
@@ -117,6 +124,10 @@
       data: initData
     });
     jsonOut.textContent = app.toJSON(true);
+    } catch (err) {
+      jsonOut.textContent = "初始化失败: " + (err && err.message ? err.message : err);
+      console.error(err);
+    }
 
     function makeNewNode(text) {
       return {

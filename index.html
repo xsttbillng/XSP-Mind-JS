@@ -32,6 +32,14 @@
     .desc { color: var(--muted); font-size: 13px; margin-top: 6px; }
     .links { margin-top: 28px; font-size: 13px; color: var(--muted); }
     .links a { color: var(--accent); }
+    .actions { margin-top: 20px; display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn {
+      display: inline-block; padding: 10px 14px; border-radius: 10px;
+      text-decoration: none; color: #e2e8f0; background: #0f172a;
+      border: 1px solid #334155; transition: border-color .15s, transform .15s;
+      font-size: 14px;
+    }
+    .btn:hover { border-color: var(--accent); transform: translateY(-1px); }
   </style>
 </head>
 <body>
@@ -55,6 +63,10 @@
         <span class="num">示例 4</span>点击触发 JS
         <div class="desc">onSelect 回调 · 记录点击时间</div>
       </a>
+    </div>
+    <div class="actions">
+      <a class="btn" href="./README.md">查看 README</a>
+      <a class="btn" href="https://github.com/xsttbillng/XSP-Mind-JS" target="_blank" rel="noreferrer">GitHub Repo</a>
     </div>
     <p class="links">
       <a href="./README.md">README</a> ·
