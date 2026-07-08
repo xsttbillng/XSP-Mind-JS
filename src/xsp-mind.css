@@ -62,18 +62,7 @@
   margin: 0;
 }
 
-/* 连线虚线流动动画（需配合 option.line.dash + option.line.animate） */
-@keyframes xsp-mind-line-flow {
-  from { stroke-dashoffset: 0; }
-  to { stroke-dashoffset: calc(-1 * var(--xsp-line-dash-total, 14)); }
-}
-
+/* 连线虚线流动（由 JS 驱动 stroke-dashoffset；保留 class 供外部样式扩展） */
 .xsp-mind-line-flow {
-  animation: xsp-mind-line-flow var(--xsp-line-flow-duration, 1.2s) linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .xsp-mind-line-flow {
-    animation: none;
-  }
+  /* animation handled in xsp-mind.js */
 }

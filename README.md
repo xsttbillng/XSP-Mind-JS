@@ -97,8 +97,9 @@ option: {
 
 | # | 仓库文件 | 在线预览 | 说明 |
 |---|----------|----------|------|
-| — | [index.html](index.html) | [首页](https://xsttbillng.github.io/XSP-Mind-JS/) | 示例入口 |
-| 1 | [examples/index.html](examples/index.html) | [示例1](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 基础渲染 + 富节点 |
+| — | [index.html](index.html) | [首页](https://xsttbillng.github.io/XSP-Mind-JS/) | 项目入口 |
+| 目录 | [examples/index.html](examples/index.html) | [示例目录](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 全部 8 个示例卡片 |
+| 1 | [examples/basic.html](examples/basic.html) | [示例1](https://xsttbillng.github.io/XSP-Mind-JS/examples/basic.html) | 基础渲染 + 富节点 |
 | 2 | [examples/editable.html](examples/editable.html) | [示例2](https://xsttbillng.github.io/XSP-Mind-JS/examples/editable.html) | 增删 / 编辑 / 布局 / 导入导出 JSON |
 | 3 | [examples/styled-nodes.html](examples/styled-nodes.html) | [示例3](https://xsttbillng.github.io/XSP-Mind-JS/examples/styled-nodes.html) | `className` 主题（含粗线） |
 | 4 | [examples/events.html](examples/events.html) | [示例4](https://xsttbillng.github.io/XSP-Mind-JS/examples/events.html) | 点击回调 |

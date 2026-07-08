@@ -100,6 +100,9 @@
       this.lineTexts = [];
       this.arrowMarker = null;
       this.arrowMarkers = new Map();
+      this.flowingLines = [];
+      this.lineFlowRaf = null;
+      this.lineFlowLastTs = 0;
       this.nodeElements = new Map();
       this.nodeMeta = new Map();
       this.selectedNodeId = null;
@@ -175,6 +178,7 @@
       document.removeEventListener("pointerup", this.boundUp);
       this.container.removeEventListener("wheel", this.boundWheel);
       this.stage.removeEventListener("pointerdown", this.boundStageDown);
+      this.stopLineFlowLoop();
       this.clearRender();
       if (this.canvas) this.canvas.clear();
       this.selectedNodeId = null;
@@ -225,11 +229,13 @@
       this.ensureArrowMarker();
       this.walkNodes(this.data, null);
       this.drawConnections(this.data, null);
+      this.ensureLineFlowLoop();
       this.fitContent();
       this.applyViewTransform();
     }
 
     clearRender() {
+      this.stopLineFlowLoop();
       this.stage.querySelectorAll(".xsp-mind-node").forEach(function (n) {
         n.remove();
       });
@@ -468,6 +474,11 @@
         linecap: "round",
         linejoin: "round"
       };
+      var dashResolved = this.resolveLineDash(child);
+      if (dashResolved) {
+        var dashArr = this.normalizeDashArray(dashResolved);
+        stroke.dasharray = dashArr.join(",");
+      }
 
       var line;
       if (style === "sline") {
@@ -523,23 +534,93 @@
       return [8, 6];
     }
 
+    getLineDom(svgLine) {
+      if (!svgLine) return null;
+      if (typeof svgLine.node === "function") return svgLine.node();
+      if (svgLine.node) return svgLine.node;
+      return null;
+    }
+
+    applyLineDashToDom(el, arr, animate, speed) {
+      if (!el) return;
+      var dashStr = arr[0] + " " + arr[1];
+      el.setAttribute("stroke-dasharray", dashStr);
+      el.style.strokeDasharray = dashStr;
+      el.classList.remove("xsp-mind-line-flow");
+      el.style.animation = "";
+      if (animate) {
+        this.flowingLines.push({
+          el: el,
+          total: arr[0] + arr[1],
+          offset: 0,
+          speed: speed
+        });
+      } else {
+        el.setAttribute("stroke-dashoffset", "0");
+        el.style.strokeDashoffset = "0";
+      }
+    }
+
+    stopLineFlowLoop() {
+      if (this.lineFlowRaf != null) {
+        cancelAnimationFrame(this.lineFlowRaf);
+        this.lineFlowRaf = null;
+      }
+      this.flowingLines = [];
+    }
+
+    ensureLineFlowLoop() {
+      var self = this;
+      if (self.lineFlowRaf != null) return;
+      if (!self.flowingLines.length) return;
+      self.lineFlowLastTs = performance.now();
+
+      function tick(now) {
+        if (!self.flowingLines.length) {
+          self.lineFlowRaf = null;
+          return;
+        }
+        var dt = Math.min(0.05, (now - self.lineFlowLastTs) / 1000);
+        self.lineFlowLastTs = now;
+        var alive = [];
+        self.flowingLines.forEach(function (item) {
+          var el = item.el;
+          if (!el || !el.isConnected) return;
+          var rate = 42 * item.speed;
+          item.offset = (item.offset + rate * dt) % item.total;
+          var off = -item.offset;
+          el.setAttribute("stroke-dashoffset", String(off));
+          el.style.strokeDashoffset = String(off);
+          alive.push(item);
+        });
+        self.flowingLines = alive;
+        self.lineFlowRaf = alive.length ? requestAnimationFrame(tick) : null;
+      }
+
+      self.lineFlowRaf = requestAnimationFrame(tick);
+    }
+
     applyLineVisual(svgLine, child) {
       var dash = this.resolveLineDash(child);
       var animate = this.resolveLineAnimate(child);
       if (!dash && !animate) return;
 
       var arr = this.normalizeDashArray(dash);
-      var el = svgLine && svgLine.node;
+      var el = this.getLineDom(svgLine);
       if (!el) return;
 
-      el.setAttribute("stroke-dasharray", arr.join(" "));
-      if (animate) {
-        var speed = Number((this.option.line && this.option.line.animateSpeed) || 1);
-        if (!isFinite(speed) || speed <= 0) speed = 1;
-        el.classList.add("xsp-mind-line-flow");
-        el.style.setProperty("--xsp-line-flow-duration", 1.2 / speed + "s");
-        el.style.setProperty("--xsp-line-dash-total", String(arr[0] + arr[1]));
+      var speed = Number((this.option.line && this.option.line.animateSpeed) || 1);
+      if (!isFinite(speed) || speed <= 0) speed = 1;
+      var dashCsv = arr.join(",");
+
+      if (svgLine.attr) {
+        try {
+          svgLine.attr("stroke-dasharray", dashCsv);
+          if (!animate) svgLine.attr("stroke-dashoffset", 0);
+        } catch (e) {}
       }
+
+      this.applyLineDashToDom(el, arr, !!animate, speed);
     }
 
     setLineStyle(patch) {
@@ -676,12 +757,14 @@
 
     redrawAllLines() {
       if (!this.canvas) return;
+      this.stopLineFlowLoop();
       this.canvas.clear();
       this.clearArrowMarkers();
       this.ensureArrowMarker();
       this.lines = [];
       this.lineTexts = [];
       this.drawConnections(this.data, null);
+      this.ensureLineFlowLoop();
     }
 
     notifyChangeSoon() {
