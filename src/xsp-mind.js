@@ -1892,4 +1892,11 @@
   global.XSPMindJS.resolveThemeId = resolveThemeId;
   global.XSPMindJS.arrowStyles = ARROW_STYLES.slice();
   global.XSPMindJS.normalizeArrowStyle = normalizeArrowStyle;
-})(window);
+  global.XSPMindJS.__test__ = {
+    cubicBezierPoint: cubicBezierPoint,
+    measureTreeSpan: measureTreeSpan,
+    normalizeArrowStyle: normalizeArrowStyle,
+    nodeMatchesQuery: nodeMatchesQuery,
+    stripHtmlText: stripHtmlText
+  };
+})(typeof window !== "undefined" ? window : globalThis);

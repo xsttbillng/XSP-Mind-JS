@@ -6,27 +6,35 @@ GitHub：**xsttbillng** · https://github.com/xsttbillng/XSP-Mind-JS
 ## 已具备
 
 - [x] `LICENSE`（MIT）· `README.md` · `SECURITY.md` · `CONTRIBUTING.md` · `CHANGELOG.md`
-- [x] `package.json` v0.3.0 · `src/xsp-mind.d.ts`
+- [x] `package.json` v0.3.1 · `src/xsp-mind.d.ts` · `package-lock.json`
 - [x] 示例 1～11 + 首页 / 示例目录
-- [x] 渲染：线型 / 箭头 / 主题 / 动画 / 折叠 / 搜索
-- [x] 交互：拖拽 / 平移缩放 / 快捷键 / 触摸捏合
-- [x] API：增删改查 / 布局 / 导入导出 / 配置生成器
+- [x] 渲染 / 交互 / API（见 README）
+- [x] 单元测试 + GitHub Actions CI
+- [x] `npm run build` → `dist/`（ESM / CJS / min）
 
 ## 发布步骤
 
 ```bash
+npm ci
+npm test
+npm run build
 git add .
-git commit -m "chore: release v0.3.0"
+git commit -m "chore: release v0.3.1"
 git push origin main
+git tag v0.3.1 && git push origin v0.3.1
 ```
 
 GitHub Pages：Settings → Pages → `main` / `/ (root)`  
 访问：https://xsttbillng.github.io/XSP-Mind-JS/
 
-可选 npm：`npm publish --access public`
+### npm 发布（可选）
 
-## 待办（后续版本）
+```bash
+npm login
+npm publish --access public
+```
 
-- [ ] 单元测试 + GitHub Actions
-- [ ] ESM/CJS 构建产物
-- [ ] npm 正式发布
+## 待办（后续）
+
+- [ ] 更多集成测试（导出 PNG、主题切换）
+- [ ] 英文 README

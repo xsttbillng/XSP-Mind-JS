@@ -34,6 +34,29 @@ Author / Copyright: **WUYUANBIAO** · GitHub: [xsttbillng/XSP-Mind-JS](https://g
 
 `xsp-mind.css` 已自动引入 `xsp-mind-themes.css`，内置三种主题可直接使用。
 
+### npm 安装（v0.3+）
+
+```bash
+npm install xsp-mind-js @svgdotjs/svg.js
+```
+
+```javascript
+import XSPMindJS from "xsp-mind-js";
+import "xsp-mind-js/style.css";
+
+const app = new XSPMindJS("mind-root", "mind-svg");
+app.initflow({ option: { layout: "tree-right" }, data: [...] });
+```
+
+浏览器 `<script>` 也可使用构建产物 `dist/xsp-mind.min.js`（见 `npm run build`）。
+
+开发：
+
+```bash
+npm test      # 单元测试
+npm run build # 生成 dist/
+```
+
 ## 快速开始
 
 ```html

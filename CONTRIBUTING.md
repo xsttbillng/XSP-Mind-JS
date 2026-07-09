@@ -5,11 +5,13 @@
 ## 开发
 
 ```bash
-npm run demo
-# 打开 http://localhost:5173/
+npm install
+npm test          # 单元测试
+npm run build     # 生成 dist/
+npm run demo      # http://localhost:5173/
 ```
 
-改动核心逻辑时优先保证 4 个示例仍可直接用 `file://` 打开（示例数据内嵌）。
+改动核心逻辑时请运行 `npm test`，涉及 API 时同步更新 README 与 `src/xsp-mind.d.ts`。
 
 ## 原则
 

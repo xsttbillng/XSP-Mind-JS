@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1] - 2026-07-09
+
+### Added
+
+- 单元测试（`npm test`，8 个用例：锚点 / 箭头角度 / 折叠 / 搜索等）
+- GitHub Actions CI（语法检查 + 测试 + 构建）
+- 构建脚本 `npm run build` → `dist/`（`.js` / `.min.js` / `.esm.js` / `.cjs.js` / css / d.ts）
+- `package.json` `exports` 字段，支持 ESM / CJS 引用
+- 配置生成器补充 `fillContainer` / `collapsible` / `keyboard` 等选项
+
 ## [0.3.0] - 2026-07-09
 
 ### Added
