@@ -89,7 +89,7 @@ npm run demo
 
 ## 主要 API
 
-- `initflow({ option, data })` / `setData(data)` / `importJSON(text)` / `getData()` / `toJSON()`
+- `initflow({ option, data, links? })` / `setData(data)` / `setLinks(links)` / `getLinks()` / `addLink(link)` / `removeLinks(...)` / `importJSON(text)` / `getData()` / `toJSON()`
 - `addNode(parentId, node)` / `updateNode(id, patch)` / `removeNode(id)`
 - `selectNode(id)` / `clearSelection()` / `beginEdit(id)`
 - `applyLayout('tree-right' | 'tree-left' | 'tree-down')` / `fitContent()` / `fitToViewport()` / `applyCanvasFit()` / `setZoom(z)` / `resetView()`
@@ -232,6 +232,20 @@ app.initflow({
 - API：`setLinks` / `getLinks` / `addLink` / `removeLinks`
 - 导出：`toJSON()` 在有 `links` 时返回 `{ data, links }` 对象
 
+`links` 单条字段（与节点连线字段相同）：
+
+| 字段 | 说明 |
+|------|------|
+| `from` / `to` | 起止节点 `id`（也可用 `source` / `target`） |
+| `linestyle` | `line` / `sline` / `zline` |
+| `linetext` | 连线中点文字 |
+| `linecolor` | 单条连线颜色 |
+| `linewidth` | 单条连线粗细 |
+| `linedash` | 单条虚线样式 |
+| `lineanimate` | 单条流动动画 |
+| `linearrow` | 单条箭头样式 |
+| `linearrowsize` | 单条箭头大小（像素） |
+
 折叠与搜索：
 
 ```js
@@ -270,7 +284,7 @@ app.clearSearchHighlight();
 | # | 仓库文件 | 在线预览 | 说明 |
 |---|----------|----------|------|
 | — | [index.html](index.html) | [首页](https://xsttbillng.github.io/XSP-Mind-JS/) | 项目入口 |
-| 目录 | [examples/index.html](examples/index.html) | [示例目录](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 全部 11 个示例卡片 |
+| 目录 | [examples/index.html](examples/index.html) | [示例目录](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 全部 12 个示例卡片 |
 | 1 | [examples/basic.html](examples/basic.html) | [示例1](https://xsttbillng.github.io/XSP-Mind-JS/examples/basic.html) | 基础渲染 + 富节点 |
 | 2 | [examples/editable.html](examples/editable.html) | [示例2](https://xsttbillng.github.io/XSP-Mind-JS/examples/editable.html) | 增删 / 编辑 / 布局 / 导入导出 JSON |
 | 3 | [examples/styled-nodes.html](examples/styled-nodes.html) | [示例3](https://xsttbillng.github.io/XSP-Mind-JS/examples/styled-nodes.html) | `className` 主题（含粗线） |
