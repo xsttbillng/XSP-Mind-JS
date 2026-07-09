@@ -81,3 +81,55 @@
 .xsp-mind-line-flow {
   /* animation handled in xsp-mind.js */
 }
+
+.xsp-mind-root.xsp-mind-touch-pan {
+  touch-action: none;
+}
+
+.xsp-mind-node.xsp-mind-has-children {
+  padding-right: 26px;
+}
+
+.xsp-mind-collapse-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.xsp-mind-collapse-btn:hover {
+  border-color: #00A1E7;
+  color: #00A1E7;
+}
+
+.xsp-mind-node.xsp-mind-collapsed-node {
+  border-style: dashed;
+}
+
+.xsp-mind-search-hit {
+  outline: 2px solid #f59e0b !important;
+  outline-offset: 2px;
+}
+
+.xsp-mind-focus-pulse {
+  animation: xsp-mind-pulse 0.85s ease-out 1;
+}
+
+@keyframes xsp-mind-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0, 161, 231, 0.55); }
+  100% { box-shadow: 0 0 0 14px rgba(0, 161, 231, 0); }
+}

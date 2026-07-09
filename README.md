@@ -13,7 +13,8 @@ Author / Copyright: **WUYUANBIAO** · GitHub: [xsttbillng/XSP-Mind-JS](https://g
 |------|------|
 | 渲染 | 树形 JSON、线型 `line/sline/zline`、可配置箭头样式、连线文字、虚线流动动画 |
 | 节点 | `x/y/width/height`、`className`、可选 HTML 文本 |
-| 交互 | 拖拽、点击选中、双击改文字、空白处平移、滚轮缩放 |
+| 交互 | 拖拽、点击选中、双击改文字、空白处平移、滚轮缩放、快捷键、触摸捏合 |
+| 结构 | 子树折叠（`collapsed`）、节点搜索与高亮定位 |
 | 编辑 API | `addNode` / `updateNode` / `removeNode` / `getData` / `toJSON` |
 | 布局 | `tree-right` / `tree-left` / `tree-down` 或 `applyLayout(...)` |
 | 导入 | `importJSON(text)` / `setData(data)` |
@@ -72,9 +73,11 @@ npm run demo
 - `exportJSON()` / `exportSVG()` / `exportPNG()`
 - `applyTheme('default' | 'dark' | 'athens-blue')` — 运行时切换内置主题
 - `setLineStyle({ dash, animate, animateSpeed, arrow, arrowSize, ... })` — 运行时切换连线样式
+- `toggleCollapse(id)` / `setCollapsed(id, bool)` / `expandAll()` / `collapseAll()`
+- `searchNodes(q)` / `highlightSearch(q)` / `focusNode(id)` / `clearSearchHighlight()`
 - `destroy()`
 
-常用 `option`：`editable`、`dblclickEdit`、`allowHtmlText`、`sanitizeHtml`、`layout`、`layoutGap`、`padding`、`fitMode`、`autoResize`、`pan`、`zoom`、`zoomMin`/`zoomMax`/`zoomStep`、`line.arrow`、`line.arrowSize`、`line.dash`、`line.animate`、`theme`、`onSelect`、`onChange`。
+常用 `option`：`editable`、`selectable`、`collapsible`、`keyboard`、`touchZoom`、`dblclickEdit`、`allowHtmlText`、`sanitizeHtml`、`layout`、`layoutGap`、`padding`、`fitMode`、`fillContainer`、`autoResize`、`pan`、`zoom`、`zoomMin`/`zoomMax`/`zoomStep`、`line.arrow`、`line.arrowSize`、`line.dash`、`line.animate`、`theme`、`onSelect`、`onChange`。
 
 内置主题（`option.theme`）：
 
@@ -170,6 +173,34 @@ console.log(XSPMindJS.arrowStyles); // ['triangle', 'open', 'diamond', 'circle']
 | `lineanimate` | 单条流动动画 |
 | `linearrow` | 单条箭头样式（同 `line.arrow`） |
 | `linearrowsize` | 单条箭头大小（像素） |
+| `collapsed` | `true` 折叠子树 |
+
+折叠与搜索：
+
+```js
+// 节点字段
+{ text: "需求分析", id: "req", collapsed: true, items: [...] }
+
+app.toggleCollapse("req");
+app.expandAll();
+app.collapseAll();
+
+const hits = app.searchNodes("架构");
+app.highlightSearch("架构");
+app.focusNode("tech-1", { center: true });
+app.clearSearchHighlight();
+```
+
+快捷键（`keyboard: true`，输入框内不触发）：
+
+| 键 | 作用 |
+|----|------|
+| `Esc` | 取消选中 / 退出编辑 |
+| `Delete` | 删除选中节点（需 `editable`） |
+| `←` / `→` | 折叠 / 展开选中节点的子树 |
+| `Enter` / `F2` | 编辑选中节点文字 |
+
+触摸：`touchZoom: true` 时双指捏合缩放；容器加 `touch-action: none`（库自动添加 class）。
 
 > `allowHtmlText: true` 时建议保持 `sanitizeHtml: true`（默认），见 [SECURITY.md](SECURITY.md) 与 [示例5](examples/html-safety.html)。
 
@@ -182,7 +213,7 @@ console.log(XSPMindJS.arrowStyles); // ['triangle', 'open', 'diamond', 'circle']
 | # | 仓库文件 | 在线预览 | 说明 |
 |---|----------|----------|------|
 | — | [index.html](index.html) | [首页](https://xsttbillng.github.io/XSP-Mind-JS/) | 项目入口 |
-| 目录 | [examples/index.html](examples/index.html) | [示例目录](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 全部 10 个示例卡片 |
+| 目录 | [examples/index.html](examples/index.html) | [示例目录](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 全部 11 个示例卡片 |
 | 1 | [examples/basic.html](examples/basic.html) | [示例1](https://xsttbillng.github.io/XSP-Mind-JS/examples/basic.html) | 基础渲染 + 富节点 |
 | 2 | [examples/editable.html](examples/editable.html) | [示例2](https://xsttbillng.github.io/XSP-Mind-JS/examples/editable.html) | 增删 / 编辑 / 布局 / 导入导出 JSON |
 | 3 | [examples/styled-nodes.html](examples/styled-nodes.html) | [示例3](https://xsttbillng.github.io/XSP-Mind-JS/examples/styled-nodes.html) | `className` 主题（含粗线） |
@@ -193,8 +224,9 @@ console.log(XSPMindJS.arrowStyles); // ['triangle', 'open', 'diamond', 'circle']
 | 8 | [examples/line-styles.html](examples/line-styles.html) | [示例8](https://xsttbillng.github.io/XSP-Mind-JS/examples/line-styles.html) | 线型 + 多色连线 |
 | 9 | [examples/themes.html](examples/themes.html) | [示例9](https://xsttbillng.github.io/XSP-Mind-JS/examples/themes.html) | 内置主题切换 |
 | 10 | [examples/config-builder.html](examples/config-builder.html) | [示例10](https://xsttbillng.github.io/XSP-Mind-JS/examples/config-builder.html) | 可视化配置 · 生成 initflow JSON |
+| 11 | [examples/productivity.html](examples/productivity.html) | [示例11](https://xsttbillng.github.io/XSP-Mind-JS/examples/productivity.html) | 折叠 / 搜索 / 快捷键 / 触摸 |
 
-发布步骤见 [docs/OPENSOURCE.md](docs/OPENSOURCE.md)。
+发布步骤见 [docs/OPENSOURCE.md](docs/OPENSOURCE.md)。变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## License
 

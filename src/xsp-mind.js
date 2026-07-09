@@ -26,6 +26,14 @@
     fitViewportPadding: 0.92,
     /** true：画布至少铺满容器（expand 取 max(内容,容器)；viewport 用 100% 贴合） */
     fillContainer: true,
+    /** 有子节点时显示折叠按钮 */
+    collapsible: true,
+    /** 启用快捷键（Delete / Esc / ←→ 折叠等） */
+    keyboard: true,
+    /** 允许点击选中（editable=false 时也可选中） */
+    selectable: true,
+    /** 双指捏合缩放（移动端） */
+    touchZoom: true,
     onSelect: null, // (node|null) => void
     onChange: null // (data) => void
   };
@@ -142,6 +150,7 @@
   }
 
   function measureTreeSpan(node) {
+    if (node && node.collapsed) return 1;
     if (!Array.isArray(node.items) || node.items.length === 0) return 1;
     var sum = 0;
     node.items.forEach(function (child) {
@@ -170,6 +179,19 @@
     };
   }
 
+  function stripHtmlText(html) {
+    if (html == null) return "";
+    var wrapper = document.createElement("div");
+    wrapper.innerHTML = String(html);
+    return wrapper.textContent || "";
+  }
+
+  function nodeMatchesQuery(node, q) {
+    if (!q) return false;
+    var text = stripHtmlText(node.text).toLowerCase();
+    return text.indexOf(q) >= 0 || String(node.id).toLowerCase().indexOf(q) >= 0;
+  }
+
   class XSPMindJS {
     constructor(containerId, svgId) {
       this.container = document.getElementById(containerId);
@@ -194,15 +216,24 @@
       this.nodeMeta = new Map();
       this.selectedNodeId = null;
       this.editingId = null;
+      this._searchQuery = "";
+      this._searchHits = [];
 
       this.drag = { active: false, nodeId: null, startX: 0, startY: 0, originX: 0, originY: 0, moved: false };
       this.panDrag = { active: false, startX: 0, startY: 0, originX: 0, originY: 0 };
+      this.activePointers = new Map();
+      this.pinchStartDist = 0;
+      this.pinchStartZoom = 1;
 
       this.boundMove = this.onPointerMove.bind(this);
       this.boundUp = this.onPointerUp.bind(this);
       this.boundWheel = this.onWheel.bind(this);
       this.boundStageDown = this.onStagePointerDown.bind(this);
       this.boundResize = this.onContainerResize.bind(this);
+      this.boundKeyDown = this.onKeyDown.bind(this);
+      this.boundContainerPointerDown = this.onContainerPointerDown.bind(this);
+      this.boundContainerPointerMove = this.onContainerPointerMove.bind(this);
+      this.boundContainerPointerUp = this.onContainerPointerUp.bind(this);
       this.changeRaf = null;
       this.resizeObserver = null;
       this.resizeRaf = null;
@@ -210,6 +241,10 @@
 
       this.stage.addEventListener("pointerdown", this.boundStageDown);
       this.container.addEventListener("wheel", this.boundWheel, { passive: false });
+      this.container.addEventListener("pointerdown", this.boundContainerPointerDown, { capture: true });
+      this.container.addEventListener("pointermove", this.boundContainerPointerMove, { capture: true });
+      this.container.addEventListener("pointerup", this.boundContainerPointerUp, { capture: true });
+      this.container.addEventListener("pointercancel", this.boundContainerPointerUp, { capture: true });
     }
 
     ensureStage() {
@@ -242,7 +277,28 @@
       }
       this.render();
       this.setupAutoResize();
+      this.setupKeyboard();
+      this.syncInteractionClass();
       return this;
+    }
+
+    setupKeyboard() {
+      this.teardownKeyboard();
+      if (this.option.keyboard === false) return;
+      document.addEventListener("keydown", this.boundKeyDown);
+    }
+
+    teardownKeyboard() {
+      document.removeEventListener("keydown", this.boundKeyDown);
+    }
+
+    syncInteractionClass() {
+      if (!this.container) return;
+      if (this.option.pan || this.option.zoom || this.option.touchZoom !== false) {
+        this.container.classList.add("xsp-mind-touch-pan");
+      } else {
+        this.container.classList.remove("xsp-mind-touch-pan");
+      }
     }
 
     applyThemeClass(className) {
@@ -303,7 +359,12 @@
     destroy() {
       document.removeEventListener("pointermove", this.boundMove);
       document.removeEventListener("pointerup", this.boundUp);
+      this.teardownKeyboard();
       this.container.removeEventListener("wheel", this.boundWheel);
+      this.container.removeEventListener("pointerdown", this.boundContainerPointerDown, { capture: true });
+      this.container.removeEventListener("pointermove", this.boundContainerPointerMove, { capture: true });
+      this.container.removeEventListener("pointerup", this.boundContainerPointerUp, { capture: true });
+      this.container.removeEventListener("pointercancel", this.boundContainerPointerUp, { capture: true });
       this.stage.removeEventListener("pointerdown", this.boundStageDown);
       this.teardownAutoResize();
       this.stopLineFlowLoop();
@@ -347,7 +408,7 @@
       var self = this;
       (list || []).forEach(function (node) {
         self.drawNode(node);
-        if (Array.isArray(node.items) && node.items.length > 0) {
+        if (!self.isNodeCollapsed(node) && Array.isArray(node.items) && node.items.length > 0) {
           self.walkNodes(node.items);
         }
       });
@@ -357,10 +418,174 @@
       var self = this;
       (list || []).forEach(function (node) {
         if (parent) self.drawLine(parent, node);
-        if (Array.isArray(node.items) && node.items.length > 0) {
+        if (!self.isNodeCollapsed(node) && Array.isArray(node.items) && node.items.length > 0) {
           self.drawConnections(node.items, node);
         }
       });
+    }
+
+    isNodeCollapsed(node) {
+      return !!(node && node.collapsed);
+    }
+
+    hasChildren(node) {
+      return !!(node && Array.isArray(node.items) && node.items.length > 0);
+    }
+
+    toggleCollapse(nodeId) {
+      var node = this.findNodeById(this.data, nodeId);
+      if (!node || !this.hasChildren(node)) return this;
+      node.collapsed = !node.collapsed;
+      this.afterStructureChange();
+      return this;
+    }
+
+    setCollapsed(nodeId, collapsed) {
+      var node = this.findNodeById(this.data, nodeId);
+      if (!node || !this.hasChildren(node)) return this;
+      node.collapsed = !!collapsed;
+      this.afterStructureChange();
+      return this;
+    }
+
+    expandAll() {
+      var self = this;
+      function walk(list) {
+        (list || []).forEach(function (n) {
+          if (n.collapsed) n.collapsed = false;
+          if (n.items) walk(n.items);
+        });
+      }
+      walk(this.data);
+      this.afterStructureChange();
+      return this;
+    }
+
+    collapseAll() {
+      var self = this;
+      function walk(list) {
+        (list || []).forEach(function (n) {
+          if (self.hasChildren(n)) n.collapsed = true;
+          if (n.items) walk(n.items);
+        });
+      }
+      walk(this.data);
+      this.afterStructureChange();
+      return this;
+    }
+
+    afterStructureChange() {
+      if (this.option.layout && this.option.layout !== "none") {
+        this.applyLayout(this.option.layout);
+      }
+      this.render();
+      this.reapplySearchHighlight();
+      this.notifyChangeSoon();
+    }
+
+    searchNodes(query) {
+      var q = String(query == null ? "" : query).trim().toLowerCase();
+      if (!q) return [];
+      var hits = [];
+      var self = this;
+      function walk(list) {
+        (list || []).forEach(function (n) {
+          if (nodeMatchesQuery(n, q)) hits.push(n);
+          if (!self.isNodeCollapsed(n) && n.items) walk(n.items);
+        });
+      }
+      walk(this.data);
+      this._searchQuery = q;
+      this._searchHits = hits;
+      return hits.slice();
+    }
+
+    clearSearchHighlight() {
+      this._searchQuery = "";
+      this._searchHits = [];
+      this.container.querySelectorAll(".xsp-mind-search-hit").forEach(function (el) {
+        el.classList.remove("xsp-mind-search-hit");
+      });
+      return this;
+    }
+
+    highlightSearch(query) {
+      this.clearSearchHighlight();
+      var hits = this.searchNodes(query);
+      var self = this;
+      hits.forEach(function (n) {
+        var el = self.nodeElements.get(String(n.id));
+        if (el) el.classList.add("xsp-mind-search-hit");
+      });
+      return hits;
+    }
+
+    reapplySearchHighlight() {
+      if (!this._searchQuery) return;
+      var q = this._searchQuery;
+      this._searchQuery = "";
+      this.highlightSearch(q);
+    }
+
+    focusNode(nodeId, options) {
+      options = options || {};
+      var id = String(nodeId);
+      var ancestors = this.getAncestorChain(id);
+      var self = this;
+      ancestors.forEach(function (aid) {
+        if (aid === id) return;
+        var p = self.findNodeById(self.data, aid);
+        if (p && p.collapsed) p.collapsed = false;
+      });
+      if (ancestors.length > 1) {
+        if (this.option.layout && this.option.layout !== "none") {
+          this.applyLayout(this.option.layout);
+        }
+        this.render();
+      }
+      this.selectNode(id);
+      var meta = this.nodeMeta.get(id);
+      var el = this.nodeElements.get(id);
+      if (!meta || !el) return this;
+
+      if (options.highlight !== false) {
+        el.classList.add("xsp-mind-focus-pulse");
+        setTimeout(function () {
+          if (el.isConnected) el.classList.remove("xsp-mind-focus-pulse");
+        }, 900);
+      }
+
+      if (options.center !== false) {
+        var w = Number(meta.width != null ? meta.width : this.option.box.width);
+        var h = Number(meta.height != null ? meta.height : this.option.box.height);
+        var nx = Number(meta.node.x || 0) + w / 2;
+        var ny = Number(meta.node.y || 0) + h / 2;
+        var cs = this.getContainerClientSize();
+        var z = this.view.zoom || 1;
+        this.view.x = cs.width / 2 - nx * z;
+        this.view.y = cs.height / 2 - ny * z;
+        this.applyViewTransform();
+      }
+      return this;
+    }
+
+    getAncestorChain(nodeId) {
+      var chain = [];
+      var self = this;
+      function find(list, path) {
+        for (var i = 0; i < (list || []).length; i++) {
+          var n = list[i];
+          var next = path.concat([String(n.id)]);
+          if (String(n.id) === String(nodeId)) {
+            chain = next;
+            return true;
+          }
+          if (n.items && find(n.items, next)) return true;
+        }
+        return false;
+      }
+      find(this.data, []);
+      return chain;
     }
 
     clientToStage(clientX, clientY) {
@@ -397,11 +622,35 @@
       el.style.height = height + "px";
       el.style.lineHeight = this.option.allowHtmlText ? "normal" : height + "px";
       el.dataset.draggable = String(!!this.option.ismove);
+      if (this.isNodeCollapsed(node)) {
+        el.classList.add("xsp-mind-collapsed-node");
+      }
 
       this.fillNodeContent(el, node);
 
-      if (this.option.editable) {
+      if (this.option.collapsible !== false && this.hasChildren(node)) {
+        var collapsed = this.isNodeCollapsed(node);
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "xsp-mind-collapse-btn";
+        btn.setAttribute("aria-label", collapsed ? "展开子节点" : "折叠子节点");
+        btn.textContent = collapsed ? "+" : "−";
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          e.preventDefault();
+          self.toggleCollapse(id);
+        });
+        btn.addEventListener("pointerdown", function (e) {
+          e.stopPropagation();
+        });
+        el.classList.add("xsp-mind-has-children");
+        el.appendChild(btn);
+      }
+
+      var canSelect = this.option.selectable !== false || this.option.editable;
+      if (canSelect) {
         el.addEventListener("click", function (e) {
+          if (e.target.closest && e.target.closest(".xsp-mind-collapse-btn")) return;
           e.stopPropagation();
           if (self.drag.active || self.drag.moved) {
             self.drag.moved = false;
@@ -433,6 +682,9 @@
 
       if (this.selectedNodeId != null && id === this.selectedNodeId) {
         el.classList.add("xsp-mind-selected");
+      }
+      if (this._searchQuery && nodeMatchesQuery(node, this._searchQuery)) {
+        el.classList.add("xsp-mind-search-hit");
       }
     }
 
@@ -497,17 +749,16 @@
 
       function commit() {
         if (self.editingId !== sid) return;
-        var next = input.value;
+        meta.node.text = input.value;
         self.editingId = null;
-        meta.node.text = next;
-        self.fillNodeContent(el, meta.node);
+        self.render();
         self.notifyChangeSoon();
       }
 
       function cancel() {
         if (self.editingId !== sid) return;
         self.editingId = null;
-        self.fillNodeContent(el, meta.node);
+        self.render();
       }
 
       input.addEventListener("keydown", function (e) {
@@ -932,7 +1183,107 @@
       document.addEventListener("pointerup", this.boundUp);
     }
 
+    onContainerPointerDown(event) {
+      this.activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.activePointers.size === 2 && this.option.touchZoom !== false && this.option.zoom) {
+        this.pinchStartDist = this.getPointerDistance();
+        this.pinchStartZoom = this.view.zoom || 1;
+        this.drag.active = false;
+        this.panDrag.active = false;
+      }
+    }
+
+    onContainerPointerMove(event) {
+      if (!this.activePointers.has(event.pointerId)) return;
+      this.activePointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (this.activePointers.size >= 2 && this.option.touchZoom !== false && this.option.zoom) {
+        var dist = this.getPointerDistance();
+        if (this.pinchStartDist > 0) {
+          var ratio = dist / this.pinchStartDist;
+          this.setZoom(this.pinchStartZoom * ratio);
+        }
+        event.preventDefault();
+      }
+    }
+
+    onContainerPointerUp(event) {
+      this.activePointers.delete(event.pointerId);
+      if (this.activePointers.size < 2) {
+        this.pinchStartDist = 0;
+      }
+    }
+
+    getPointerDistance() {
+      var pts = Array.from(this.activePointers.values());
+      if (pts.length < 2) return 0;
+      return Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+    }
+
+    onKeyDown(event) {
+      if (this.option.keyboard === false) return;
+      var target = event.target;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        if (this.editingId) {
+          var editEl = this.nodeElements.get(this.editingId);
+          if (editEl) {
+            var meta = this.nodeMeta.get(this.editingId);
+            this.editingId = null;
+            if (meta) this.fillNodeContent(editEl, meta.node);
+          }
+        }
+        this.clearSelection();
+        return;
+      }
+
+      if (
+        (event.key === "Delete" || event.key === "Backspace") &&
+        this.option.editable &&
+        this.selectedNodeId
+      ) {
+        event.preventDefault();
+        this.removeNode(this.selectedNodeId);
+        return;
+      }
+
+      if (!this.selectedNodeId) return;
+      var node = this.findNodeById(this.data, this.selectedNodeId);
+      if (!node) return;
+
+      if (event.key === "ArrowLeft" && this.hasChildren(node)) {
+        event.preventDefault();
+        if (!node.collapsed) this.setCollapsed(node.id, true);
+        return;
+      }
+      if (event.key === "ArrowRight" && this.hasChildren(node)) {
+        event.preventDefault();
+        if (node.collapsed) this.setCollapsed(node.id, false);
+        return;
+      }
+      if (
+        (event.key === "Enter" || event.key === "F2") &&
+        this.option.editable &&
+        !this.option.allowHtmlText
+      ) {
+        event.preventDefault();
+        this.beginEdit(this.selectedNodeId);
+      }
+    }
+
     onPointerMove(event) {
+      if (this.activePointers.size >= 2 && this.option.touchZoom !== false && this.option.zoom) {
+        return;
+      }
+
       if (this.drag.active) {
         var id = this.drag.nodeId;
         var meta = this.nodeMeta.get(id);
@@ -961,15 +1312,19 @@
     }
 
     onPointerUp() {
+      var nodeDragged = this.drag.moved;
       this.drag.active = false;
       this.drag.nodeId = null;
+      this.drag.moved = false;
       if (this.panDrag.active) {
         this.panDrag.active = false;
         this.container.classList.remove("xsp-mind-panning");
       }
       document.removeEventListener("pointermove", this.boundMove);
       document.removeEventListener("pointerup", this.boundUp);
-      this.fitContent();
+      if (nodeDragged && this.option.fitMode !== "viewport") {
+        this.fitContent();
+      }
       this.notifyChangeSoon();
     }
 
@@ -1026,6 +1381,7 @@
     setupAutoResize() {
       this.teardownAutoResize();
       this.syncFitModeClass();
+      this.syncInteractionClass();
       if (this.option.autoResize === false) return;
       if (typeof ResizeObserver !== "undefined") {
         this.resizeObserver = new ResizeObserver(this.boundResize);
@@ -1237,7 +1593,7 @@
         box.minY = Math.min(box.minY, y);
         box.maxX = Math.max(box.maxX, x + w);
         box.maxY = Math.max(box.maxY, y + h);
-        if (Array.isArray(node.items) && node.items.length) {
+        if (Array.isArray(node.items) && node.items.length && !self.isNodeCollapsed(node)) {
           self.collectBounds(node.items, box);
         }
       });
@@ -1413,7 +1769,7 @@
       var node = this.findNodeById(this.data, nodeId);
       if (!node) throw new Error("nodeId=" + nodeId + " not found");
       patch = patch || {};
-      ["text", "className", "linestyle", "linetext", "width", "height", "x", "y"].forEach(function (k) {
+      ["text", "className", "linestyle", "linetext", "width", "height", "x", "y", "collapsed"].forEach(function (k) {
         if (patch[k] !== undefined) node[k] = patch[k];
       });
       this.render();

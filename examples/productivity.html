@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSP-Mind-JS - 效率增强</title>
+  <link rel="stylesheet" href="../src/xsp-mind.css" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .layout { display: flex; width: 100%; height: 100%; }
+    .sidebar {
+      width: 240px; flex: 0 0 240px; box-sizing: border-box; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; padding: 16px 12px; overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 14px; color: #111827; }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: block; padding: 10px 12px; border-radius: 8px; color: #334155;
+      text-decoration: none; font-size: 13px; line-height: 1.4;
+    }
+    .nav-item.active { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+    .head { padding: 10px 14px; font-size: 14px; border-bottom: 1px solid #eee; }
+    .toolbar {
+      padding: 8px 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      border-bottom: 1px solid #eee; background: #fafafa;
+    }
+    .toolbar input[type="search"] {
+      padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px; min-width: 200px;
+    }
+    button { padding: 6px 10px; cursor: pointer; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; }
+    #mind-root-prod { flex: 1; min-height: 280px; position: relative; }
+    .hint { font-size: 12px; color: #64748b; margin-left: auto; }
+    .kbd { font-family: Consolas, monospace; background: #e2e8f0; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>例子列表</h3>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html">← 项目首页</a>
+        <a class="nav-item" href="./index.html">示例目录</a>
+        <a class="nav-item" href="./basic.html">示例1：基础 JSON 渲染</a>
+        <a class="nav-item" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
+        <a class="nav-item" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
+        <a class="nav-item" href="./events.html">示例4：点击触发 JS</a>
+        <a class="nav-item" href="./html-safety.html">示例5：HTML 安全 / sanitize</a>
+        <a class="nav-item" href="./layouts.html">示例6：布局模式对比</a>
+        <a class="nav-item" href="./animated-lines.html">示例7：连线虚线流动</a>
+        <a class="nav-item" href="./line-styles.html">示例8：线型与多色连线</a>
+        <a class="nav-item" href="./themes.html">示例9：内置主题</a>
+        <a class="nav-item" href="./config-builder.html">示例10：配置生成器</a>
+        <a class="nav-item active" href="./productivity.html">示例11：效率增强</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div class="head">示例11：折叠子树 · 搜索定位 · 快捷键 · 双指捏合缩放</div>
+      <div class="toolbar">
+        <input type="search" id="searchInput" placeholder="搜索节点文字或 id…" />
+        <button type="button" id="btnSearch">搜索高亮</button>
+        <button type="button" id="btnFocusNext">下一个</button>
+        <button type="button" id="btnClearSearch">清除</button>
+        <button type="button" id="btnExpandAll">全部展开</button>
+        <button type="button" id="btnCollapseAll">全部折叠</button>
+        <button type="button" id="btnResetView">重置视图</button>
+        <span class="hint">
+          <span class="kbd">Esc</span> 取消选中 ·
+          <span class="kbd">←</span>/<span class="kbd">→</span> 折叠 ·
+          <span class="kbd">Del</span> 删除 ·
+          节点右侧 <span class="kbd">±</span> 按钮
+        </span>
+      </div>
+      <div id="mind-root-prod">
+        <svg id="mind-svg-prod"></svg>
+      </div>
+    </main>
+  </div>
+
+  <script src="../vendor/svg.min.js"></script>
+  <script src="../src/xsp-mind.js"></script>
+  <script>
+    const data = [
+      {
+        text: "产品规划",
+        id: "root",
+        linestyle: "sline",
+        items: [
+          {
+            text: "需求分析",
+            id: "req",
+            linestyle: "sline",
+            items: [
+              { text: "用户调研", id: "req-1", items: [] },
+              { text: "竞品分析", id: "req-2", items: [] },
+              { text: "需求评审", id: "req-3", items: [] }
+            ]
+          },
+          {
+            text: "技术方案",
+            id: "tech",
+            linestyle: "zline",
+            items: [
+              { text: "架构设计", id: "tech-1", items: [] },
+              { text: "接口定义", id: "tech-2", items: [] }
+            ]
+          },
+          {
+            text: "上线发布",
+            id: "ship",
+            linestyle: "sline",
+            items: [
+              { text: "灰度测试", id: "ship-1", items: [] },
+              { text: "正式发布", id: "ship-2", items: [] }
+            ]
+          }
+        ]
+      }
+    ];
+
+    let searchIndex = -1;
+    let lastHits = [];
+
+    const app = new XSPMindJS("mind-root-prod", "mind-svg-prod");
+    app.initflow({
+      option: {
+        box: { width: 150, height: 40 },
+        line: { color: "#00A1E7", width: 1.4, arrow: true },
+        layout: "tree-right",
+        layoutGap: { x: 200, y: 22 },
+        padding: 48,
+        fitMode: "expand",
+        fillContainer: true,
+        autoResize: true,
+        collapsible: true,
+        keyboard: true,
+        editable: true,
+        selectable: true,
+        touchZoom: true,
+        pan: true,
+        zoom: true,
+        ismove: true
+      },
+      data: JSON.parse(JSON.stringify(data))
+    });
+
+    function runSearch() {
+      const q = document.getElementById("searchInput").value;
+      lastHits = app.highlightSearch(q);
+      searchIndex = lastHits.length ? 0 : -1;
+      if (searchIndex >= 0) app.focusNode(lastHits[0].id);
+    }
+
+    document.getElementById("btnSearch").addEventListener("click", runSearch);
+    document.getElementById("searchInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") runSearch();
+    });
+
+    document.getElementById("btnFocusNext").addEventListener("click", () => {
+      if (!lastHits.length) return;
+      searchIndex = (searchIndex + 1) % lastHits.length;
+      app.focusNode(lastHits[searchIndex].id);
+    });
+
+    document.getElementById("btnClearSearch").addEventListener("click", () => {
+      document.getElementById("searchInput").value = "";
+      app.clearSearchHighlight();
+      lastHits = [];
+      searchIndex = -1;
+    });
+
+    document.getElementById("btnExpandAll").addEventListener("click", () => app.expandAll());
+    document.getElementById("btnCollapseAll").addEventListener("click", () => app.collapseAll());
+    document.getElementById("btnResetView").addEventListener("click", () => app.resetView());
+  </script>
+</body>
+</html>

@@ -62,6 +62,8 @@ export interface XSPMindNode {
   linearrow?: boolean | XSPMindArrowStyle;
   /** 单条连线箭头大小，覆盖全局 line.arrowSize */
   linearrowsize?: number;
+  /** 折叠子树，隐藏下级节点与连线 */
+  collapsed?: boolean;
   items?: XSPMindNode[];
   [key: string]: unknown;
 }
@@ -92,6 +94,14 @@ export interface XSPMindOption {
   fitViewportPadding?: number;
   /** true（默认）：画布至少铺满容器；viewport 模式下 stage/svg 使用 100% 宽高 */
   fillContainer?: boolean;
+  /** 有子节点时显示折叠按钮 */
+  collapsible?: boolean;
+  /** 启用快捷键 Delete/Esc/←→/Enter 等 */
+  keyboard?: boolean;
+  /** 允许点击选中（editable=false 时也可） */
+  selectable?: boolean;
+  /** 双指捏合缩放 */
+  touchZoom?: boolean;
   /** default | dark | athens-blue（或中文：默认 / 高级黑 / 雅典蓝） */
   theme?: string;
   onSelect?: (node: XSPMindNode | null) => void;
@@ -138,6 +148,14 @@ export declare class XSPMindJS {
   setZoom(z: number): this;
   resetView(): this;
   applyTheme(themeName: string): this;
+  toggleCollapse(nodeId: string | number): this;
+  setCollapsed(nodeId: string | number, collapsed: boolean): this;
+  expandAll(): this;
+  collapseAll(): this;
+  searchNodes(query: string): XSPMindNode[];
+  highlightSearch(query: string): XSPMindNode[];
+  clearSearchHighlight(): this;
+  focusNode(nodeId: string | number, options?: { center?: boolean; highlight?: boolean }): this;
   exportJSON(filename?: string): string;
   exportSVG(filename?: string): string;
   exportPNG(filename?: string): Promise<Blob>;
