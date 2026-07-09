@@ -8,10 +8,15 @@ export interface XSPMindBoxOption {
   height: number;
 }
 
+export type XSPMindArrowStyle = "triangle" | "open" | "diamond" | "circle" | "none";
+
 export interface XSPMindLineOption {
   color: string;
   width: number;
-  arrow?: boolean;
+  /** true / triangle 实心三角；false / none 无箭头；open | diamond | circle */
+  arrow?: boolean | XSPMindArrowStyle;
+  /** 箭头大小（像素），默认 10 */
+  arrowSize?: number;
   /** false 实线；true 或 [8,6] 虚线 */
   dash?: boolean | number[];
   /** true / 'flow' 开启虚线流动 */
@@ -53,6 +58,10 @@ export interface XSPMindNode {
   linedash?: boolean | number[];
   /** 单条连线流动动画，覆盖全局 line.animate */
   lineanimate?: boolean | "flow";
+  /** 单条连线箭头样式，覆盖全局 line.arrow */
+  linearrow?: boolean | XSPMindArrowStyle;
+  /** 单条连线箭头大小，覆盖全局 line.arrowSize */
+  linearrowsize?: number;
   items?: XSPMindNode[];
   [key: string]: unknown;
 }
@@ -81,6 +90,8 @@ export interface XSPMindOption {
   autoResize?: boolean;
   canvasMin?: Partial<XSPMindCanvasMin>;
   fitViewportPadding?: number;
+  /** true（默认）：画布至少铺满容器；viewport 模式下 stage/svg 使用 100% 宽高 */
+  fillContainer?: boolean;
   /** default | dark | athens-blue（或中文：默认 / 高级黑 / 雅典蓝） */
   theme?: string;
   onSelect?: (node: XSPMindNode | null) => void;
@@ -142,6 +153,8 @@ declare global {
       themes: XSPMindThemeInfo[];
       getTheme(name: string): XSPMindThemePreset;
       resolveThemeId(name: string): string;
+      arrowStyles: XSPMindArrowStyle[];
+      normalizeArrowStyle(value: unknown): XSPMindArrowStyle | null;
     };
   }
   const XSPMindJS: {
@@ -150,5 +163,7 @@ declare global {
     themes: XSPMindThemeInfo[];
     getTheme(name: string): XSPMindThemePreset;
     resolveThemeId(name: string): string;
+    arrowStyles: XSPMindArrowStyle[];
+    normalizeArrowStyle(value: unknown): XSPMindArrowStyle | null;
   };
 }

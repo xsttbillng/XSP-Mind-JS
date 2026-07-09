@@ -11,7 +11,7 @@ Author / Copyright: **WUYUANBIAO** · GitHub: [xsttbillng/XSP-Mind-JS](https://g
 
 | 类别 | 能力 |
 |------|------|
-| 渲染 | 树形 JSON、线型 `line/sline/zline`、箭头、连线文字、虚线流动动画 |
+| 渲染 | 树形 JSON、线型 `line/sline/zline`、可配置箭头样式、连线文字、虚线流动动画 |
 | 节点 | `x/y/width/height`、`className`、可选 HTML 文本 |
 | 交互 | 拖拽、点击选中、双击改文字、空白处平移、滚轮缩放 |
 | 编辑 API | `addNode` / `updateNode` / `removeNode` / `getData` / `toJSON` |
@@ -71,10 +71,10 @@ npm run demo
 - `applyLayout('tree-right' | 'tree-left' | 'tree-down')` / `fitContent()` / `fitToViewport()` / `applyCanvasFit()` / `setZoom(z)` / `resetView()`
 - `exportJSON()` / `exportSVG()` / `exportPNG()`
 - `applyTheme('default' | 'dark' | 'athens-blue')` — 运行时切换内置主题
-- `setLineStyle({ dash, animate, animateSpeed, ... })` — 运行时切换连线样式
+- `setLineStyle({ dash, animate, animateSpeed, arrow, arrowSize, ... })` — 运行时切换连线样式
 - `destroy()`
 
-常用 `option`：`editable`、`dblclickEdit`、`allowHtmlText`、`sanitizeHtml`、`layout`、`fitMode`、`autoResize`、`pan`、`zoom`、`line.arrow`、`line.dash`、`line.animate`、`onSelect`、`onChange`。
+常用 `option`：`editable`、`dblclickEdit`、`allowHtmlText`、`sanitizeHtml`、`layout`、`layoutGap`、`padding`、`fitMode`、`autoResize`、`pan`、`zoom`、`zoomMin`/`zoomMax`/`zoomStep`、`line.arrow`、`line.arrowSize`、`line.dash`、`line.animate`、`theme`、`onSelect`、`onChange`。
 
 内置主题（`option.theme`）：
 
@@ -99,30 +99,77 @@ console.log(XSPMindJS.themes);
 
 ```js
 option: {
-  fitMode: "expand",   // 默认：随内容扩大，超出容器可滚动
-  // fitMode: "viewport", // 缩放到容器内完整显示（示例6 使用）
-  autoResize: true,    // 容器尺寸变化时自动重新适配
+  fitMode: "expand",   // 默认：随内容扩大，至少铺满容器（fillContainer）
+  // fitMode: "viewport", // 缩放到容器内完整显示，画布 100% 贴合容器
+  fillContainer: true, // false 时画布仅按内容尺寸（可能小于容器）
+  autoResize: true,
   canvasMin: { width: 320, height: 240 },
   fitViewportPadding: 0.92
 }
-// 手动：app.fitContent() | app.fitToViewport() | app.resetView()
 ```
 
-连线动画示例：
+容器需有明确高度（如 `height: 100%` / `100vh` / `flex: 1`），否则 `100%` 无法计算：
+
+```html
+<div id="mind-root" style="width:100%;height:100%;">
+  <svg id="mind-svg"></svg>
+</div>
+```
+
+手动：`app.fitContent()` | `app.fitToViewport()` | `app.resetView()`
+```
+
+连线动画与样式示例：
 
 ```js
 option: {
   line: {
     color: "#00A1E7",
     width: 1.6,
-    arrow: true,
+    arrow: true,       // true | false | 'triangle' | 'open' | 'diamond' | 'circle' | 'none'
+    arrowSize: 10,     // 箭头大小（像素），默认 10
     dash: [8, 6],      // true 或 [实线长, 间隔长]
     animate: "flow",   // true / 'flow' 开启流动
     animateSpeed: 1.2  // 越大越快
   }
 }
-// 单条连线覆盖：节点字段 linedash / lineanimate / linecolor / linewidth
+// 单条连线覆盖：linecolor / linewidth / linedash / lineanimate / linearrow / linearrowsize
+// 运行时：app.setLineStyle({ arrow: 'open', arrowSize: 12 })
 ```
+
+箭头样式（`line.arrow` / 节点 `linearrow`）：
+
+| 值 | 效果 |
+|----|------|
+| `true` / `"triangle"` | 实心三角（默认） |
+| `"open"` | 空心 V 形 |
+| `"diamond"` | 菱形 |
+| `"circle"` | 圆点 |
+| `false` / `"none"` | 无箭头 |
+
+```js
+// 全局
+option: { line: { arrow: "open", arrowSize: 12 } }
+
+// 单条连线（写在子节点上，覆盖全局）
+{ text: "需求分析", linearrow: "diamond", linearrowsize: 14, items: [] }
+
+// 查看可用样式
+console.log(XSPMindJS.arrowStyles); // ['triangle', 'open', 'diamond', 'circle']
+```
+
+节点字段（连线相关）：
+
+| 字段 | 说明 |
+|------|------|
+| `linestyle` | `line` / `sline` / `zline` |
+| `linetext` | 连线中点文字 |
+| `linecolor` | 单条连线颜色 |
+| `linewidth` | 单条连线粗细 |
+| `linedash` | 单条虚线样式 |
+| `lineanimate` | 单条流动动画 |
+| `linearrow` | 单条箭头样式（同 `line.arrow`） |
+| `linearrowsize` | 单条箭头大小（像素） |
 
 > `allowHtmlText: true` 时建议保持 `sanitizeHtml: true`（默认），见 [SECURITY.md](SECURITY.md) 与 [示例5](examples/html-safety.html)。
 
@@ -135,7 +182,7 @@ option: {
 | # | 仓库文件 | 在线预览 | 说明 |
 |---|----------|----------|------|
 | — | [index.html](index.html) | [首页](https://xsttbillng.github.io/XSP-Mind-JS/) | 项目入口 |
-| 目录 | [examples/index.html](examples/index.html) | [示例目录](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 全部 8 个示例卡片 |
+| 目录 | [examples/index.html](examples/index.html) | [示例目录](https://xsttbillng.github.io/XSP-Mind-JS/examples/index.html) | 全部 10 个示例卡片 |
 | 1 | [examples/basic.html](examples/basic.html) | [示例1](https://xsttbillng.github.io/XSP-Mind-JS/examples/basic.html) | 基础渲染 + 富节点 |
 | 2 | [examples/editable.html](examples/editable.html) | [示例2](https://xsttbillng.github.io/XSP-Mind-JS/examples/editable.html) | 增删 / 编辑 / 布局 / 导入导出 JSON |
 | 3 | [examples/styled-nodes.html](examples/styled-nodes.html) | [示例3](https://xsttbillng.github.io/XSP-Mind-JS/examples/styled-nodes.html) | `className` 主题（含粗线） |
@@ -145,6 +192,7 @@ option: {
 | 7 | [examples/animated-lines.html](examples/animated-lines.html) | [示例7](https://xsttbillng.github.io/XSP-Mind-JS/examples/animated-lines.html) | 虚线流动动画 |
 | 8 | [examples/line-styles.html](examples/line-styles.html) | [示例8](https://xsttbillng.github.io/XSP-Mind-JS/examples/line-styles.html) | 线型 + 多色连线 |
 | 9 | [examples/themes.html](examples/themes.html) | [示例9](https://xsttbillng.github.io/XSP-Mind-JS/examples/themes.html) | 内置主题切换 |
+| 10 | [examples/config-builder.html](examples/config-builder.html) | [示例10](https://xsttbillng.github.io/XSP-Mind-JS/examples/config-builder.html) | 可视化配置 · 生成 initflow JSON |
 
 发布步骤见 [docs/OPENSOURCE.md](docs/OPENSOURCE.md)。
 

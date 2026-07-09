@@ -1,14 +1,10 @@
 /**
  * XSP-Mind-JS 内置主题：默认 / 高级黑 / 雅典蓝
- * 容器需带对应 class（由 option.theme 或 applyTheme 自动设置）
+ * 画布底色设在 .xsp-mind-root（容器），SVG 透明只画连线
  */
 
 /* —— 默认 —— */
 .xsp-mind-root.xsp-theme-default {
-  background: #f5f7fa;
-}
-
-.xsp-mind-root.xsp-theme-default .xsp-mind-stage > svg {
   background: #ffffff;
 }
 
@@ -25,10 +21,6 @@
 
 /* —— 高级黑 —— */
 .xsp-mind-root.xsp-theme-dark {
-  background: #0a0c10;
-}
-
-.xsp-mind-root.xsp-theme-dark .xsp-mind-stage > svg {
   background: #12151b;
 }
 
@@ -45,10 +37,6 @@
 
 /* —— 雅典蓝 —— */
 .xsp-mind-root.xsp-theme-athens {
-  background: #e3edf7;
-}
-
-.xsp-mind-root.xsp-theme-athens .xsp-mind-stage > svg {
   background: #f2f8fd;
 }
 

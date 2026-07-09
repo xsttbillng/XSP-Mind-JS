@@ -5,7 +5,8 @@
   width: 100%;
   height: 100%;
   overflow: auto;
-  background: #fff;
+  /* 画布底色在容器上，避免 SVG 宽度小于容器时出现色块错位 */
+  background: #ffffff;
 }
 
 .xsp-mind-root.xsp-mind-fit-viewport {
@@ -15,13 +16,16 @@
 .xsp-mind-stage {
   position: relative;
   transform-origin: 0 0;
-  min-width: 100%;
-  min-height: 100%;
+  /* 与容器同色，stage 与 svg 尺寸一致时铺满可视区 */
+  background: inherit;
 }
 
 .xsp-mind-stage > svg {
   display: block;
-  background: #fff;
+  width: 100%;
+  height: 100%;
+  /* 连线层透明，不单独铺一块窄背景 */
+  background: transparent;
 }
 
 .xsp-mind-root.xsp-mind-panning {

@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>XSP-Mind-JS - 配置生成器</title>
+  <link rel="stylesheet" href="../src/xsp-mind.css" />
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: Arial, sans-serif; }
+    .layout { display: flex; width: 100%; height: 100%; }
+    .sidebar {
+      width: 240px; flex: 0 0 240px; box-sizing: border-box; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; padding: 16px 12px; overflow: auto;
+    }
+    .sidebar h3 { margin: 0 0 12px 0; font-size: 14px; color: #111827; }
+    .nav-list { display: flex; flex-direction: column; gap: 8px; }
+    .nav-item {
+      display: block; padding: 10px 12px; border-radius: 8px; color: #334155;
+      text-decoration: none; font-size: 13px; line-height: 1.4; background: transparent;
+    }
+    .nav-item.active { background: #dbeafe; color: #1d4ed8; font-weight: 700; }
+    .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+    .page-head {
+      padding: 10px 14px; font-size: 14px; color: #333; border-bottom: 1px solid #eee; flex: 0 0 auto;
+    }
+    .work {
+      flex: 1; min-height: 0; display: flex; flex-direction: column;
+    }
+    .top-row { flex: 1; min-height: 0; display: flex; }
+    .config-panel {
+      width: 300px; flex: 0 0 300px; border-right: 1px solid #e5e7eb;
+      background: #f8fafc; overflow: auto; padding: 12px 14px 20px; box-sizing: border-box;
+    }
+    .preview-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; background: #fafafa; }
+    .preview-toolbar {
+      flex: 0 0 auto; padding: 8px 10px; display: flex; gap: 8px; align-items: center;
+      border-bottom: 1px solid #eee; background: #fff; flex-wrap: wrap;
+    }
+    #mind-root-config { flex: 1; min-height: 200px; position: relative; }
+    .json-panel {
+      flex: 0 0 32vh; min-height: 160px; border-top: 1px solid #e5e7eb;
+      display: flex; flex-direction: column; background: #0b1020;
+    }
+    .json-head {
+      flex: 0 0 auto; padding: 8px 12px; display: flex; gap: 8px; align-items: center;
+      background: #111827; color: #94a3b8; font-size: 12px; border-bottom: 1px solid #1f2937;
+    }
+    #jsonOut {
+      flex: 1; margin: 0; padding: 10px 12px; width: 100%; box-sizing: border-box;
+      border: none; resize: none; background: #0b1020; color: #e5e7eb;
+      font-family: Consolas, "Courier New", monospace; font-size: 12px; line-height: 1.45;
+    }
+    .section { margin-bottom: 16px; }
+    .section h4 {
+      margin: 0 0 8px; font-size: 12px; color: #64748b; text-transform: uppercase;
+      letter-spacing: 0.04em; font-weight: 700;
+    }
+    .field { margin-bottom: 8px; }
+    .field label {
+      display: block; font-size: 12px; color: #475569; margin-bottom: 4px;
+    }
+    .field input[type="text"],
+    .field input[type="number"],
+    .field select {
+      width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 13px;
+      border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;
+    }
+    .field input[type="color"] { width: 100%; height: 32px; padding: 2px; cursor: pointer; }
+    .field-row { display: flex; gap: 8px; }
+    .field-row .field { flex: 1; }
+    .check-row { display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 13px; color: #334155; }
+    .check-row label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+    button, .btn {
+      padding: 6px 10px; cursor: pointer; font-size: 13px; border: 1px solid #cbd5e1;
+      border-radius: 6px; background: #fff; color: #334155;
+    }
+    button.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+    button:hover { border-color: #94a3b8; }
+    button.primary:hover { background: #1d4ed8; }
+    .hint { font-size: 11px; color: #94a3b8; margin-top: 4px; line-height: 1.4; }
+    #selectedHint { font-size: 12px; color: #64748b; }
+    .node-panel { display: none; padding-top: 4px; border-top: 1px dashed #cbd5e1; margin-top: 8px; }
+    .node-panel.visible { display: block; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>例子列表</h3>
+      <nav class="nav-list">
+        <a class="nav-item" href="../index.html">← 项目首页</a>
+        <a class="nav-item" href="./index.html">示例目录</a>
+        <a class="nav-item" href="./basic.html">示例1：基础 JSON 渲染</a>
+        <a class="nav-item" href="./editable.html">示例2：可编辑 + 实时 JSON</a>
+        <a class="nav-item" href="./styled-nodes.html">示例3：节点样式 / CSS 主题</a>
+        <a class="nav-item" href="./events.html">示例4：点击触发 JS</a>
+        <a class="nav-item" href="./html-safety.html">示例5：HTML 安全 / sanitize</a>
+        <a class="nav-item" href="./layouts.html">示例6：布局模式对比</a>
+        <a class="nav-item" href="./animated-lines.html">示例7：连线虚线流动</a>
+        <a class="nav-item" href="./line-styles.html">示例8：线型与多色连线</a>
+        <a class="nav-item" href="./themes.html">示例9：内置主题</a>
+        <a class="nav-item active" href="./config-builder.html">示例10：配置生成器</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <div class="page-head">示例10：左侧调参 · 右侧预览 · 下方生成 <code>initflow</code> 用 JSON（可复制 / 导出）</div>
+      <div class="work">
+        <div class="top-row">
+          <div class="config-panel" id="configForm">
+            <div class="section">
+              <h4>示例数据</h4>
+              <div class="field">
+                <label for="dataPreset">数据模板</label>
+                <select id="dataPreset">
+                  <option value="simple">简单（根 + 2 子节点）</option>
+                  <option value="planning" selected>产品规划（三层）</option>
+                  <option value="styles">多线型（line / sline / zline）</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>画布与交互</h4>
+              <div class="field">
+                <label for="layout">布局 layout</label>
+                <select id="layout">
+                  <option value="tree-right" selected>tree-right → 右</option>
+                  <option value="tree-left">tree-left ← 左</option>
+                  <option value="tree-down">tree-down ↓ 下</option>
+                  <option value="none">none 手动坐标</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="theme">主题 theme</label>
+                <select id="theme">
+                  <option value="default" selected>default 默认</option>
+                  <option value="dark">dark 高级黑</option>
+                  <option value="athens-blue">athens-blue 雅典蓝</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="fitMode">适配 fitMode</label>
+                <select id="fitMode">
+                  <option value="expand">expand 随内容扩大</option>
+                  <option value="viewport" selected>viewport 缩放入容器</option>
+                </select>
+              </div>
+              <div class="check-row">
+                <label><input type="checkbox" id="pan" checked /> pan 平移</label>
+                <label><input type="checkbox" id="zoom" checked /> zoom 缩放</label>
+                <label><input type="checkbox" id="ismove" checked /> ismove 拖节点</label>
+                <label><input type="checkbox" id="editable" /> editable 可编辑</label>
+                <label><input type="checkbox" id="autoResize" checked /> autoResize</label>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>节点默认 box</h4>
+              <div class="field-row">
+                <div class="field">
+                  <label for="boxWidth">width</label>
+                  <input type="number" id="boxWidth" value="150" min="60" max="400" />
+                </div>
+                <div class="field">
+                  <label for="boxHeight">height</label>
+                  <input type="number" id="boxHeight" value="40" min="24" max="200" />
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>连线 line</h4>
+              <div class="field-row">
+                <div class="field">
+                  <label for="lineColor">color</label>
+                  <input type="color" id="lineColor" value="#00A1E7" />
+                </div>
+                <div class="field">
+                  <label for="lineWidth">width</label>
+                  <input type="number" id="lineWidth" value="1.4" min="0.5" max="6" step="0.1" />
+                </div>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="lineArrow">arrow</label>
+                  <select id="lineArrow">
+                    <option value="triangle" selected>triangle 实心三角</option>
+                    <option value="open">open 空心</option>
+                    <option value="diamond">diamond 菱形</option>
+                    <option value="circle">circle 圆点</option>
+                    <option value="none">none 无</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="lineArrowSize">arrowSize</label>
+                  <input type="number" id="lineArrowSize" value="10" min="6" max="24" />
+                </div>
+              </div>
+              <div class="check-row">
+                <label><input type="checkbox" id="lineDash" /> dash 虚线</label>
+                <label><input type="checkbox" id="lineAnimate" /> animate 流动</label>
+              </div>
+              <div class="field">
+                <label for="lineAnimateSpeed">animateSpeed</label>
+                <input type="number" id="lineAnimateSpeed" value="1" min="0.2" max="4" step="0.1" />
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>文字 text</h4>
+              <div class="field-row">
+                <div class="field">
+                  <label for="textColor">color</label>
+                  <input type="color" id="textColor" value="#00A1E7" />
+                </div>
+                <div class="field">
+                  <label for="textSize">size</label>
+                  <input type="number" id="textSize" value="12" min="10" max="20" />
+                </div>
+              </div>
+            </div>
+
+            <div class="section node-panel" id="nodePanel">
+              <h4>选中节点连线</h4>
+              <p class="hint" id="selectedHint">点击预览区节点后可单独设置该条入边样式</p>
+              <div class="field">
+                <label for="nodeLinestyle">linestyle</label>
+                <select id="nodeLinestyle">
+                  <option value="">（继承默认 line）</option>
+                  <option value="line">line 直线</option>
+                  <option value="sline">sline 曲线</option>
+                  <option value="zline">zline 折线</option>
+                </select>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="nodeLinecolor">linecolor</label>
+                  <input type="color" id="nodeLinecolor" value="#00A1E7" />
+                </div>
+                <div class="field">
+                  <label for="nodeLinearrow">linearrow</label>
+                  <select id="nodeLinearrow">
+                    <option value="">（继承全局）</option>
+                    <option value="triangle">triangle</option>
+                    <option value="open">open</option>
+                    <option value="diamond">diamond</option>
+                    <option value="circle">circle</option>
+                    <option value="none">none</option>
+                  </select>
+                </div>
+              </div>
+              <button type="button" id="btnApplyNode">应用到选中节点</button>
+            </div>
+
+            <button type="button" class="primary" id="btnApply" style="width:100%;margin-top:4px;">应用配置</button>
+            <p class="hint">修改左侧选项后自动刷新预览；也可点击画布节点单独改连线。</p>
+          </div>
+
+          <div class="preview-panel">
+            <div class="preview-toolbar">
+              <button type="button" id="btnResetView">重置视图</button>
+              <button type="button" id="btnFit">适配视口</button>
+              <span id="selectedLabel">所选：无</span>
+            </div>
+            <div id="mind-root-config">
+              <svg id="mind-svg-config"></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="json-panel">
+          <div class="json-head">
+            <span>生成的 JSON（可直接用于 initflow）</span>
+            <button type="button" id="btnCopyJson">复制</button>
+            <button type="button" id="btnExportJson">导出 .json</button>
+            <button type="button" id="btnLoadJson">从下方加载</button>
+          </div>
+          <textarea id="jsonOut" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="../vendor/svg.min.js"></script>
+  <script src="../src/xsp-mind.js"></script>
+  <script>
+    const DATA_PRESETS = {
+      simple: [
+        {
+          text: "根节点",
+          id: "root",
+          linestyle: "sline",
+          items: [
+            { text: "子节点 A", id: "a", linestyle: "sline", items: [] },
+            { text: "子节点 B", id: "b", linestyle: "zline", items: [] }
+          ]
+        }
+      ],
+      planning: [
+        {
+          text: "产品规划",
+          id: "root",
+          linestyle: "sline",
+          items: [
+            {
+              text: "需求分析",
+              id: "req",
+              linestyle: "sline",
+              items: [
+                { text: "用户调研", id: "req-1", items: [] },
+                { text: "竞品分析", id: "req-2", items: [] }
+              ]
+            },
+            {
+              text: "技术方案",
+              id: "tech",
+              linestyle: "zline",
+              items: [
+                { text: "架构设计", id: "tech-1", items: [] },
+                { text: "接口定义", id: "tech-2", items: [] }
+              ]
+            },
+            {
+              text: "上线发布",
+              id: "ship",
+              linestyle: "sline",
+              items: [
+                { text: "灰度测试", id: "ship-1", items: [] },
+                { text: "正式发布", id: "ship-2", items: [] }
+              ]
+            }
+          ]
+        }
+      ],
+      styles: [
+        {
+          text: "线型示例",
+          id: "root",
+          items: [
+            { text: "直线 line", id: "n-line", linestyle: "line", linecolor: "#2563eb", items: [] },
+            { text: "曲线 sline", id: "n-sline", linestyle: "sline", linecolor: "#dc2626", linearrow: "open", items: [] },
+            { text: "折线 zline", id: "n-zline", linestyle: "zline", linecolor: "#16a34a", linearrow: "diamond", items: [] }
+          ]
+        }
+      ]
+    };
+
+    const jsonOut = document.getElementById("jsonOut");
+    const selectedLabel = document.getElementById("selectedLabel");
+    const nodePanel = document.getElementById("nodePanel");
+    let selectedNode = null;
+    let applyTimer = null;
+
+    function cloneData(data) {
+      return JSON.parse(JSON.stringify(data));
+    }
+
+    function $(id) {
+      return document.getElementById(id);
+    }
+
+    function readOptionFromForm() {
+      const dash = $("lineDash").checked;
+      const animate = $("lineAnimate").checked;
+      return {
+        box: {
+          width: Number($("boxWidth").value) || 150,
+          height: Number($("boxHeight").value) || 40
+        },
+        line: {
+          color: $("lineColor").value,
+          width: Number($("lineWidth").value) || 1.4,
+          arrow: $("lineArrow").value === "none" ? false : $("lineArrow").value,
+          arrowSize: Number($("lineArrowSize").value) || 10,
+          dash: dash ? [8, 6] : false,
+          animate: animate ? "flow" : false,
+          animateSpeed: Number($("lineAnimateSpeed").value) || 1
+        },
+        text: {
+          color: $("textColor").value,
+          size: Number($("textSize").value) || 12
+        },
+        layout: $("layout").value,
+        theme: $("theme").value,
+        fitMode: $("fitMode").value,
+        layoutGap: { x: 200, y: 24 },
+        padding: 48,
+        pan: $("pan").checked,
+        zoom: $("zoom").checked,
+        ismove: $("ismove").checked,
+        editable: $("editable").checked,
+        autoResize: $("autoResize").checked
+      };
+    }
+
+    function buildPayload() {
+      const preset = $("dataPreset").value;
+      return {
+        option: readOptionFromForm(),
+        data: cloneData(DATA_PRESETS[preset] || DATA_PRESETS.simple)
+      };
+    }
+
+    function syncJsonOutput() {
+      const payload = {
+        option: app.option,
+        data: app.getData()
+      };
+      jsonOut.value = JSON.stringify(payload, null, 2);
+    }
+
+    function scheduleApply() {
+      if (applyTimer) clearTimeout(applyTimer);
+      applyTimer = setTimeout(applyConfig, 120);
+    }
+
+    function applyConfig() {
+      const payload = buildPayload();
+      app.initflow(payload);
+      app.resetView();
+      selectedNode = null;
+      selectedLabel.textContent = "所选：无";
+      nodePanel.classList.remove("visible");
+      syncJsonOutput();
+    }
+
+    function findNode(list, id) {
+      if (!Array.isArray(list)) return null;
+      for (let i = 0; i < list.length; i++) {
+        const n = list[i];
+        if (String(n.id) === String(id)) return n;
+        const found = findNode(n.items, id);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    const app = new XSPMindJS("mind-root-config", "mind-svg-config");
+    app.initflow({
+      option: readOptionFromForm(),
+      data: cloneData(DATA_PRESETS.planning)
+    });
+
+    app.option.onSelect = function (node) {
+      selectedNode = node;
+      if (!node) {
+        selectedLabel.textContent = "所选：无";
+        nodePanel.classList.remove("visible");
+        return;
+      }
+      selectedLabel.textContent = "所选：" + (node.text || node.id);
+      if (String(node.id) === "root") {
+        nodePanel.classList.remove("visible");
+        return;
+      }
+      nodePanel.classList.add("visible");
+      $("nodeLinestyle").value = node.linestyle || "";
+      $("nodeLinecolor").value = node.linecolor || $("lineColor").value;
+      $("nodeLinearrow").value = node.linearrow != null ? String(node.linearrow) : "";
+    };
+
+    app.option.onChange = function () {
+      syncJsonOutput();
+    };
+
+    $("btnApplyNode").addEventListener("click", () => {
+      if (!selectedNode || String(selectedNode.id) === "root") return;
+      const node = findNode(app.data, selectedNode.id);
+      if (!node) return;
+      const ls = $("nodeLinestyle").value;
+      const lc = $("nodeLinecolor").value;
+      const la = $("nodeLinearrow").value;
+      if (ls) node.linestyle = ls;
+      else delete node.linestyle;
+      if (lc) node.linecolor = lc;
+      else delete node.linecolor;
+      if (la) node.linearrow = la === "none" ? false : la;
+      else delete node.linearrow;
+      app.render();
+      syncJsonOutput();
+    });
+
+    $("configForm").addEventListener("input", scheduleApply);
+    $("configForm").addEventListener("change", scheduleApply);
+
+    $("btnApply").addEventListener("click", applyConfig);
+    $("btnResetView").addEventListener("click", () => app.resetView());
+    $("btnFit").addEventListener("click", () => app.fitToViewport());
+
+    $("btnCopyJson").addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(jsonOut.value);
+        $("btnCopyJson").textContent = "已复制";
+        setTimeout(() => { $("btnCopyJson").textContent = "复制"; }, 1500);
+      } catch (e) {
+        jsonOut.select();
+        document.execCommand("copy");
+      }
+    });
+
+    $("btnExportJson").addEventListener("click", () => {
+      const text = jsonOut.value;
+      const blob = new Blob([text], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "xsp-mind-config.json";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+
+    $("btnLoadJson").addEventListener("click", () => {
+      try {
+        const parsed = JSON.parse(jsonOut.value);
+        if (!parsed || typeof parsed !== "object") throw new Error("invalid");
+        app.initflow({
+          option: parsed.option || {},
+          data: Array.isArray(parsed.data) ? parsed.data : []
+        });
+        app.resetView();
+        syncJsonOutput();
+      } catch (e) {
+        alert("JSON 解析失败，请检查格式");
+      }
+    });
+
+    syncJsonOutput();
+  </script>
+</body>
+</html>

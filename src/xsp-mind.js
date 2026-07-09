@@ -1,7 +1,7 @@
 (function (global) {
   const DEFAULT_OPTION = {
     box: { width: 140, height: 36 },
-    line: { color: "#00A1E7", width: 1.2, arrow: true, dash: false, animate: false, animateSpeed: 1 },
+    line: { color: "#00A1E7", width: 1.2, arrow: true, arrowSize: 10, dash: false, animate: false, animateSpeed: 1 },
     text: { color: "#00A1E7", size: 12 },
     ismove: true,
     allowHtmlText: false,
@@ -24,6 +24,8 @@
     autoResize: true,
     canvasMin: { width: 320, height: 240 },
     fitViewportPadding: 0.92,
+    /** true：画布至少铺满容器（expand 取 max(内容,容器)；viewport 用 100% 贴合） */
+    fillContainer: true,
     onSelect: null, // (node|null) => void
     onChange: null // (data) => void
   };
@@ -148,6 +150,26 @@
     return Math.max(1, sum);
   }
 
+  var ARROW_STYLES = ["triangle", "open", "diamond", "circle"];
+
+  function normalizeArrowStyle(value) {
+    if (value === false || value === "none" || value === 0) return null;
+    if (value === true || value == null) return "triangle";
+    var s = String(value).toLowerCase();
+    if (ARROW_STYLES.indexOf(s) >= 0) return s;
+    return "triangle";
+  }
+
+  function cubicBezierPoint(t, p0, p1, p2, p3) {
+    var u = 1 - t;
+    var uu = u * u;
+    var tt = t * t;
+    return {
+      x: uu * u * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + tt * t * p3.x,
+      y: uu * u * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + tt * t * p3.y
+    };
+  }
+
   class XSPMindJS {
     constructor(containerId, svgId) {
       this.container = document.getElementById(containerId);
@@ -165,8 +187,6 @@
       this.canvas = null;
       this.lines = [];
       this.lineTexts = [];
-      this.arrowMarker = null;
-      this.arrowMarkers = new Map();
       this.flowingLines = [];
       this.lineFlowRaf = null;
       this.lineFlowLastTs = 0;
@@ -244,9 +264,12 @@
       if (theme.option && theme.option.text) {
         this.option.text = deepMerge(this.option.text || {}, theme.option.text);
       }
-      this.clearArrowMarkers();
-      this.ensureArrowMarker();
       if (this.canvas) this.redrawAllLines();
+      if (this.option.fitMode === "viewport") {
+        this.fitToViewport();
+      } else if (this.canvas) {
+        this.fitContent();
+      }
       return this;
     }
 
@@ -296,42 +319,10 @@
       }
       this.canvas = global.SVG("#" + this.svgId);
       if (!this.canvas) throw new Error("svg #" + this.svgId + " not found");
-      this.ensureArrowMarker();
-    }
-
-    ensureArrowMarker() {
-      var color = (this.option.line && this.option.line.color) || "#00A1E7";
-      this.arrowMarker = this.getArrowMarker(color);
-    }
-
-    getArrowMarker(color) {
-      if (!this.canvas) return null;
-      var key = color || (this.option.line && this.option.line.color) || "#00A1E7";
-      if (this.arrowMarkers && this.arrowMarkers.has(key)) {
-        return this.arrowMarkers.get(key);
-      }
-      if (!this.arrowMarkers) this.arrowMarkers = new Map();
-      try {
-        var marker = this.canvas.marker(10, 7, function (add) {
-          add.polygon("0,0 10,3.5 0,7").fill(key);
-        });
-        marker.ref(10, 3.5);
-        marker.size(10, 7);
-        this.arrowMarkers.set(key, marker);
-        return marker;
-      } catch (e) {
-        return null;
-      }
-    }
-
-    clearArrowMarkers() {
-      this.arrowMarker = null;
-      this.arrowMarkers = new Map();
     }
 
     render() {
       this.clearRender();
-      this.ensureArrowMarker();
       this.walkNodes(this.data, null);
       this.drawConnections(this.data, null);
       this.ensureLineFlowLoop();
@@ -345,7 +336,6 @@
         n.remove();
       });
       if (this.canvas) this.canvas.clear();
-      this.clearArrowMarkers();
       this.lines = [];
       this.lineTexts = [];
       this.nodeElements.clear();
@@ -541,28 +531,195 @@
       var cw = Number(child.width != null ? child.width : this.option.box.width);
       var ch = Number(child.height != null ? child.height : this.option.box.height);
 
-      var x1 = parent.x + pw;
-      var y1 = parent.y + ph / 2;
-      var x2 = child.x;
-      var y2 = child.y + ch / 2;
+      var px = Number(parent.x || 0);
+      var py = Number(parent.y || 0);
+      var cx = Number(child.x || 0);
+      var cy = Number(child.y || 0);
+      var parentCx = px + pw / 2;
+      var parentCy = py + ph / 2;
+      var childCx = cx + cw / 2;
+      var childCy = cy + ch / 2;
+      var dx = childCx - parentCx;
+      var dy = childCy - parentCy;
 
-      var parentCenterX = parent.x + pw / 2;
-      var inHorizontalRange =
-        parentCenterX > child.x - pw && parentCenterX < child.x + cw + pw;
-
-      if (inHorizontalRange) {
-        x1 = parent.x + pw / 2;
-        y1 = parent.y + ph / 2;
-        x2 = child.x + cw / 2;
-        y2 = child.y + ch / 2;
-      } else if (parent.x > child.x) {
-        x1 = parent.x;
-        y1 = parent.y + ph / 2;
-        x2 = child.x + cw;
-        y2 = child.y + ch / 2;
+      // 垂直方向为主：上下连接（tree-down / 纵向布局）
+      if (Math.abs(dy) > Math.abs(dx)) {
+        if (dy >= 0) {
+          return { x1: parentCx, y1: py + ph, x2: childCx, y2: cy, axis: "v" };
+        }
+        return { x1: parentCx, y1: py, x2: childCx, y2: cy + ch, axis: "v" };
       }
 
-      return { x1: x1, y1: y1, x2: x2, y2: y2 };
+      // 水平方向为主：左右连接（tree-right / tree-left）
+      if (dx >= 0) {
+        return { x1: px + pw, y1: parentCy, x2: cx, y2: childCy, axis: "h" };
+      }
+      return { x1: px, y1: parentCy, x2: cx + cw, y2: childCy, axis: "h" };
+    }
+
+    getSlineSpec(a) {
+      var p0 = { x: a.x1, y: a.y1 };
+      var p3 = { x: a.x2, y: a.y2 };
+      var p1;
+      var p2;
+      if (a.axis === "v") {
+        var cy = (a.y1 + a.y2) / 2;
+        p1 = { x: a.x1, y: cy };
+        p2 = { x: a.x2, y: cy };
+      } else {
+        var cx = (a.x1 + a.x2) / 2;
+        p1 = { x: cx, y: a.y1 };
+        p2 = { x: cx, y: a.y2 };
+      }
+      return { p0: p0, p1: p1, p2: p2, p3: p3 };
+    }
+
+    getZlinePoints(a) {
+      if (a.axis === "v") {
+        var midY = a.y1 + (a.y2 - a.y1) / 2;
+        return [
+          { x: a.x1, y: a.y1 },
+          { x: a.x1, y: midY },
+          { x: a.x2, y: midY },
+          { x: a.x2, y: a.y2 }
+        ];
+      }
+      var midX = a.x1 + (a.x2 - a.x1) / 2;
+      return [
+        { x: a.x1, y: a.y1 },
+        { x: midX, y: a.y1 },
+        { x: midX, y: a.y2 },
+        { x: a.x2, y: a.y2 }
+      ];
+    }
+
+    buildLinePath(style, a) {
+      if (style === "sline") {
+        var spec = this.getSlineSpec(a);
+        return (
+          "M" +
+          spec.p0.x +
+          " " +
+          spec.p0.y +
+          " C" +
+          spec.p1.x +
+          " " +
+          spec.p1.y +
+          ", " +
+          spec.p2.x +
+          " " +
+          spec.p2.y +
+          ", " +
+          spec.p3.x +
+          " " +
+          spec.p3.y
+        );
+      }
+      if (style === "zline") {
+        return this.getZlinePoints(a)
+          .map(function (p) {
+            return p.x + "," + p.y;
+          })
+          .join(" ");
+      }
+      return null;
+    }
+
+    getLineEndAngle(style, a) {
+      if (style === "sline") {
+        var spec = this.getSlineSpec(a);
+        var near = cubicBezierPoint(0.95, spec.p0, spec.p1, spec.p2, spec.p3);
+        var dx = spec.p3.x - near.x;
+        var dy = spec.p3.y - near.y;
+        if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) {
+          dx = spec.p3.x - spec.p2.x;
+          dy = spec.p3.y - spec.p2.y;
+        }
+        return (Math.atan2(dy, dx) * 180) / Math.PI;
+      }
+      if (style === "zline") {
+        var pts = this.getZlinePoints(a);
+        var prev = pts[pts.length - 2];
+        return (Math.atan2(a.y2 - prev.y, a.x2 - prev.x) * 180) / Math.PI;
+      }
+      return (Math.atan2(a.y2 - a.y1, a.x2 - a.x1) * 180) / Math.PI;
+    }
+
+    arrowUnitVectors(angleDeg) {
+      var rad = (angleDeg * Math.PI) / 180;
+      return {
+        cos: Math.cos(rad),
+        sin: Math.sin(rad),
+        perpX: -Math.sin(rad),
+        perpY: Math.cos(rad)
+      };
+    }
+
+    drawArrowHead(x, y, angleDeg, color, style, size) {
+      var len = Math.max(6, Number(size) || 10);
+      var half = len * 0.35;
+      var u = this.arrowUnitVectors(angleDeg);
+      var back = len * 0.92;
+      var bx = x - u.cos * back;
+      var by = y - u.sin * back;
+
+      if (style === "circle") {
+        var r = half * 0.9;
+        return this.canvas.circle(r * 2).fill(color).center(x - u.cos * r, y - u.sin * r);
+      }
+
+      if (style === "open") {
+        var lx = bx + u.perpX * half;
+        var ly = by + u.perpY * half;
+        var rx = bx - u.perpX * half;
+        var ry = by - u.perpY * half;
+        return this.canvas
+          .polyline(x + "," + y + " " + lx + "," + ly + " " + rx + "," + ry)
+          .fill("none")
+          .stroke({ color: color, width: 1.8, linecap: "round", linejoin: "round" });
+      }
+
+      if (style === "diamond") {
+        var mx = x - u.cos * (back * 0.5);
+        var my = y - u.sin * (back * 0.5);
+        return this.canvas
+          .polygon(
+            x +
+              "," +
+              y +
+              " " +
+              (mx + u.perpX * half) +
+              "," +
+              (my + u.perpY * half) +
+              " " +
+              bx +
+              "," +
+              by +
+              " " +
+              (mx - u.perpX * half) +
+              "," +
+              (my - u.perpY * half)
+          )
+          .fill(color);
+      }
+
+      var tlx = bx + u.perpX * half;
+      var tly = by + u.perpY * half;
+      var trx = bx - u.perpX * half;
+      var try_ = by - u.perpY * half;
+      return this.canvas.polygon(x + "," + y + " " + tlx + "," + tly + " " + trx + "," + try_).fill(color);
+    }
+
+    resolveArrowStyle(child) {
+      if (child && child.linearrow != null) return normalizeArrowStyle(child.linearrow);
+      var lineOpt = this.option.line || {};
+      return normalizeArrowStyle(lineOpt.arrow);
+    }
+
+    resolveArrowSize(child) {
+      if (child && child.linearrowsize != null) return Number(child.linearrowsize);
+      var lineOpt = this.option.line || {};
+      return Number(lineOpt.arrowSize != null ? lineOpt.arrowSize : 10);
     }
 
     drawLine(parent, child) {
@@ -587,28 +744,23 @@
 
       var line;
       if (style === "sline") {
-        var cx1 = (a.x1 + a.x2) / 2;
-        var path = "M" + a.x1 + " " + a.y1 + " C" + cx1 + " " + a.y1 + ", " + cx1 + " " + a.y2 + ", " + a.x2 + " " + a.y2;
-        line = this.canvas.path(path).fill("none").stroke(stroke);
+        line = this.canvas.path(this.buildLinePath("sline", a)).fill("none").stroke(stroke);
       } else if (style === "zline") {
-        var midX = a.x1 + (a.x2 - a.x1) / 2;
-        var points = a.x1 + "," + a.y1 + " " + midX + "," + a.y1 + " " + midX + "," + a.y2 + " " + a.x2 + "," + a.y2;
-        line = this.canvas.polyline(points).fill("none").stroke(stroke);
+        line = this.canvas.polyline(this.buildLinePath("zline", a)).fill("none").stroke(stroke);
       } else {
         line = this.canvas.line(a.x1, a.y1, a.x2, a.y2).fill("none").stroke(stroke);
       }
 
-      if (this.option.line.arrow !== false && line && line.marker) {
-        var marker = this.getArrowMarker(color);
-        if (marker) {
-          try {
-            line.marker("end", marker);
-          } catch (e) {}
-        }
+      var arrowStyle = this.resolveArrowStyle(child);
+      var arrowEl = null;
+      if (arrowStyle && line) {
+        var angle = this.getLineEndAngle(style, a);
+        var arrowSize = this.resolveArrowSize(child);
+        arrowEl = this.drawArrowHead(a.x2, a.y2, angle, color, arrowStyle, arrowSize);
       }
 
       this.applyLineVisual(line, child);
-      this.lines.push({ id: parent.id + "->" + child.id, line: line });
+      this.lines.push({ id: parent.id + "->" + child.id, line: line, arrow: arrowEl });
       this.drawLineText(child.linetext, a.x1, a.y1, a.x2, a.y2, child);
     }
 
@@ -730,7 +882,6 @@
 
     setLineStyle(patch) {
       this.option.line = deepMerge(this.option.line || {}, patch || {});
-      this.ensureArrowMarker();
       this.redrawAllLines();
       return this;
     }
@@ -930,33 +1081,87 @@
       return this.fitContent();
     }
 
+    getContainerClientSize() {
+      if (!this.container) {
+        return { width: 320, height: 240 };
+      }
+      var rect = this.container.getBoundingClientRect();
+      return {
+        width: Math.max(1, rect.width),
+        height: Math.max(1, rect.height)
+      };
+    }
+
+    syncStageCanvasSize(width, height) {
+      var w = Math.max(1, Math.ceil(width));
+      var h = Math.max(1, Math.ceil(height));
+      if (!this.stage || !this.svgEl) return { width: w, height: h };
+
+      var fillContainer = this.option.fillContainer !== false;
+      var viewport = this.option.fitMode === "viewport";
+      var usePercent = fillContainer && viewport;
+
+      if (usePercent) {
+        var cs = this.getContainerClientSize();
+        w = cs.width;
+        h = cs.height;
+      } else if (fillContainer) {
+        var cs2 = this.getContainerClientSize();
+        w = Math.max(w, cs2.width);
+        h = Math.max(h, cs2.height);
+      }
+
+      if (usePercent) {
+        this.stage.style.width = "100%";
+        this.stage.style.height = "100%";
+      } else {
+        this.stage.style.width = w + "px";
+        this.stage.style.height = h + "px";
+      }
+      this.stage.style.minWidth = "0";
+      this.stage.style.minHeight = "0";
+
+      this.svgEl.setAttribute("width", String(w));
+      this.svgEl.setAttribute("height", String(h));
+      if (usePercent) {
+        this.svgEl.style.width = "100%";
+        this.svgEl.style.height = "100%";
+      } else {
+        this.svgEl.style.width = w + "px";
+        this.svgEl.style.height = h + "px";
+      }
+      if (this.canvas && this.canvas.size) {
+        try {
+          this.canvas.size(w, h);
+        } catch (e) {}
+      }
+      return { width: w, height: h };
+    }
+
+    syncNodeDomFromData() {
+      var self = this;
+      this.nodeMeta.forEach(function (meta, id) {
+        var el = self.nodeElements.get(id);
+        var node = meta.node;
+        if (!el || !node) return;
+        el.style.left = Number(node.x || 0) + "px";
+        el.style.top = Number(node.y || 0) + "px";
+      });
+    }
+
     fitToViewport() {
       var bounds = this.getContentBounds();
       var box = bounds.box;
       var pad = bounds.pad;
-      var minW = (this.option.canvasMin && this.option.canvasMin.width) || 320;
-      var minH = (this.option.canvasMin && this.option.canvasMin.height) || 240;
-      var width = Math.max(minW, Math.ceil(box.maxX + pad));
-      var height = Math.max(minH, Math.ceil(box.maxY + pad));
+      var cs = this.getContainerClientSize();
+      var availW = cs.width;
+      var availH = cs.height;
 
-      this.svgEl.setAttribute("width", String(width));
-      this.svgEl.setAttribute("height", String(height));
-      this.svgEl.style.width = "";
-      this.svgEl.style.height = "";
-      this.stage.style.width = width + "px";
-      this.stage.style.height = height + "px";
-      if (this.canvas && this.canvas.size) {
-        try {
-          this.canvas.size(width, height);
-        } catch (e) {}
-      }
+      this.syncStageCanvasSize(availW, availH);
 
-      var rect = this.container.getBoundingClientRect();
-      var availW = rect.width || 1;
-      var availH = rect.height || 1;
-      var inset = Number(this.option.fitViewportPadding != null ? this.option.fitViewportPadding : 0.92);
       var contentW = Math.max(1, box.maxX - box.minX + pad * 2);
       var contentH = Math.max(1, box.maxY - box.minY + pad * 2);
+      var inset = Number(this.option.fitViewportPadding != null ? this.option.fitViewportPadding : 0.92);
       var zoomMax = this.option.zoomMax || 2.5;
       var zoomMin = this.option.zoomMin || 0.4;
       var zoom = Math.min(availW / contentW, availH / contentH, zoomMax) * inset;
@@ -969,15 +1174,13 @@
       this.view.x = availW / 2 - centerX * zoom;
       this.view.y = availH / 2 - centerY * zoom;
       this.applyViewTransform();
-      return { width: width, height: height, zoom: zoom };
+      return { width: availW, height: availH, zoom: zoom };
     }
 
     redrawAllLines() {
       if (!this.canvas) return;
       this.stopLineFlowLoop();
       this.canvas.clear();
-      this.clearArrowMarkers();
-      this.ensureArrowMarker();
       this.lines = [];
       this.lineTexts = [];
       this.drawConnections(this.data, null);
@@ -1046,20 +1249,9 @@
       var pad = bounds.pad;
       var minW = (this.option.canvasMin && this.option.canvasMin.width) || 320;
       var minH = (this.option.canvasMin && this.option.canvasMin.height) || 240;
-      var width = Math.max(minW, Math.ceil(box.maxX + pad));
-      var height = Math.max(minH, Math.ceil(box.maxY + pad));
-      this.svgEl.setAttribute("width", String(width));
-      this.svgEl.setAttribute("height", String(height));
-      this.svgEl.style.width = "";
-      this.svgEl.style.height = "";
-      this.stage.style.width = width + "px";
-      this.stage.style.height = height + "px";
-      if (this.canvas && this.canvas.size) {
-        try {
-          this.canvas.size(width, height);
-        } catch (e) {}
-      }
-      return { width: width, height: height };
+      var width = Math.max(minW, Math.ceil(box.maxX - box.minX + pad * 2));
+      var height = Math.max(minH, Math.ceil(box.maxY - box.minY + pad * 2));
+      return this.syncStageCanvasSize(width, height);
     }
 
     applyLayout(mode) {
@@ -1342,4 +1534,6 @@
   global.XSPMindJS.themes = listThemes();
   global.XSPMindJS.getTheme = getThemePreset;
   global.XSPMindJS.resolveThemeId = resolveThemeId;
+  global.XSPMindJS.arrowStyles = ARROW_STYLES.slice();
+  global.XSPMindJS.normalizeArrowStyle = normalizeArrowStyle;
 })(window);
