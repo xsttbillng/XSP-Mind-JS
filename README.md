@@ -11,7 +11,7 @@ Author / Copyright: **WUYUANBIAO** · GitHub: [xsttbillng/XSP-Mind-JS](https://g
 
 | 类别 | 能力 |
 |------|------|
-| 渲染 | 树形 JSON、线型 `line/sline/zline`、可配置箭头样式、连线文字、虚线流动动画 |
+| 渲染 | 树形 JSON、线型 `line/sline/zline`、可配置箭头样式、连线文字、虚线流动动画、`links` 多源汇入 |
 | 节点 | `x/y/width/height`、`className`、可选 HTML 文本 |
 | 交互 | 拖拽、点击选中、双击改文字、空白处平移、滚轮缩放、快捷键、触摸捏合 |
 | 结构 | 子树折叠（`collapsed`）、节点搜索与高亮定位 |
@@ -198,6 +198,40 @@ console.log(XSPMindJS.arrowStyles); // ['triangle', 'open', 'diamond', 'circle']
 | `linearrowsize` | 单条箭头大小（像素） |
 | `collapsed` | `true` 折叠子树 |
 
+### 多条线汇入同一节点（`links`）
+
+树形 `items` 只能表达「一个父 → 一个子」。若多个节点要连到**同一个**目标，使用 `links` 数组（与 `data` 并列）：
+
+```js
+app.initflow({
+  option: { layout: "none" },
+  data: [
+    {
+      text: "中心",
+      id: "root",
+      x: 40, y: 160,
+      items: [
+        { text: "来源 A", id: "a", x: 280, y: 60, items: [] },
+        { text: "来源 B", id: "b", x: 280, y: 160, items: [] },
+        { text: "来源 C", id: "c", x: 280, y: 260, items: [] },
+        { text: "汇聚点", id: "hub", x: 520, y: 160, items: [] }
+      ]
+    }
+  ],
+  links: [
+    { from: "a", to: "hub", linestyle: "sline", linecolor: "#2563eb" },
+    { from: "b", to: "hub", linestyle: "zline", linecolor: "#dc2626", linetext: "主路" },
+    { from: "c", to: "hub", linestyle: "line", linecolor: "#64748b", linedash: true }
+  ]
+});
+```
+
+- `links` 支持 `from`/`to`（或 `source`/`target`）及与节点相同的连线样式字段
+- 目标节点仍须在 `data` 树中存在（用于定位与渲染）
+- 折叠隐藏的分支上的节点，其相关 `links` 也会自动隐藏
+- API：`setLinks` / `getLinks` / `addLink` / `removeLinks`
+- 导出：`toJSON()` 在有 `links` 时返回 `{ data, links }` 对象
+
 折叠与搜索：
 
 ```js
@@ -248,6 +282,7 @@ app.clearSearchHighlight();
 | 9 | [examples/themes.html](examples/themes.html) | [示例9](https://xsttbillng.github.io/XSP-Mind-JS/examples/themes.html) | 内置主题切换 |
 | 10 | [examples/config-builder.html](examples/config-builder.html) | [示例10](https://xsttbillng.github.io/XSP-Mind-JS/examples/config-builder.html) | 可视化配置 · 生成 initflow JSON |
 | 11 | [examples/productivity.html](examples/productivity.html) | [示例11](https://xsttbillng.github.io/XSP-Mind-JS/examples/productivity.html) | 折叠 / 搜索 / 快捷键 / 触摸 |
+| 12 | [examples/links.html](examples/links.html) | [示例12](https://xsttbillng.github.io/XSP-Mind-JS/examples/links.html) | 多条线汇入同一节点（`links`） |
 
 发布步骤见 [docs/OPENSOURCE.md](docs/OPENSOURCE.md)。变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 

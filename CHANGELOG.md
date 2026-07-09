@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.2] - 2026-07-09
+
+### Added
+
+- 额外连线 `links`：支持多条线汇入同一节点（`from`/`to` + 单条样式）
+- API：`setLinks` / `getLinks` / `addLink` / `removeLinks`
+- `importJSON` / `toJSON` 支持 `{ data, links }` 格式
+- 示例 12：`examples/links.html`
+
 ## [0.3.1] - 2026-07-09
 
 ### Added

@@ -68,6 +68,22 @@ export interface XSPMindNode {
   [key: string]: unknown;
 }
 
+/** 额外连线：多条线汇入同一节点（与树形 parent→child 独立） */
+export interface XSPMindLink {
+  from: string | number;
+  to: string | number;
+  id?: string | number;
+  linestyle?: "line" | "sline" | "zline" | string;
+  linetext?: string;
+  linecolor?: string;
+  linewidth?: number;
+  linedash?: boolean | number[];
+  lineanimate?: boolean | "flow";
+  linearrow?: boolean | XSPMindArrowStyle;
+  linearrowsize?: number;
+  [key: string]: unknown;
+}
+
 export interface XSPMindOption {
   box?: Partial<XSPMindBoxOption>;
   line?: Partial<XSPMindLineOption>;
@@ -121,14 +137,20 @@ export interface XSPMindThemePreset extends XSPMindThemeInfo {
 export interface XSPMindInitPayload {
   option?: XSPMindOption;
   data?: XSPMindNode[];
+  links?: XSPMindLink[];
 }
 
 export declare class XSPMindJS {
   constructor(containerId: string, svgId: string);
   option: XSPMindOption;
   data: XSPMindNode[];
+  links: XSPMindLink[];
   initflow(payload: XSPMindInitPayload): this;
   setData(data: XSPMindNode[]): this;
+  setLinks(links: XSPMindLink[]): this;
+  getLinks(): XSPMindLink[];
+  addLink(link: XSPMindLink): this;
+  removeLinks(idOrNodeId: string | number | ((link: XSPMindLink, index: number) => boolean)): this;
   importJSON(text: string): this;
   getData(): XSPMindNode[];
   toJSON(pretty?: boolean): string;

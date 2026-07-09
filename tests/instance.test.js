@@ -61,4 +61,52 @@ describe("XSPMindJS instance", () => {
     assert.equal(hits.length, 1);
     assert.equal(hits[0].id, "b");
   });
+
+  it("links draw extra converge lines", () => {
+    const { XSPMindJS } = loadXSPMind();
+    const app = new XSPMindJS("mind-root-test", "mind-svg-test");
+    app.initflow({
+      option: { layout: "none" },
+      data: [
+        {
+          text: "root",
+          id: "root",
+          x: 0,
+          y: 0,
+          items: [
+            { text: "a", id: "a", x: 100, y: 0, items: [] },
+            { text: "b", id: "b", x: 100, y: 80, items: [] },
+            { text: "hub", id: "hub", x: 300, y: 40, items: [] }
+          ]
+        }
+      ],
+      links: [
+        { from: "a", to: "hub" },
+        { from: "b", to: "hub" }
+      ]
+    });
+    assert.equal(app.lines.length, 5);
+    const payload = JSON.parse(app.toJSON());
+    assert.ok(Array.isArray(payload.data));
+    assert.equal(payload.links.length, 2);
+  });
+
+  it("isNodeVisible respects collapsed ancestors", () => {
+    const { XSPMindJS } = loadXSPMind();
+    const app = new XSPMindJS("mind-root-test", "mind-svg-test");
+    app.initflow({
+      option: { layout: "none" },
+      data: [
+        {
+          text: "root",
+          id: "root",
+          collapsed: true,
+          items: [{ text: "hidden", id: "hidden", items: [] }]
+        }
+      ],
+      links: [{ from: "root", to: "hidden" }]
+    });
+    assert.equal(app.isNodeVisible("hidden"), false);
+    assert.equal(app.lines.length, 0);
+  });
 });

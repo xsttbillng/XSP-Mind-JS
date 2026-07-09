@@ -1,6 +1,6 @@
 {
   "name": "xsp-mind-js",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Lightweight JSON-driven flowchart / mindmap display library for embedded docs and marketing pages.",
   "keywords": [
     "mindmap",

@@ -124,6 +124,19 @@
     return JSON.parse(JSON.stringify(data || []));
   }
 
+  function normalizeLinks(links) {
+    if (!Array.isArray(links)) return [];
+    var out = [];
+    links.forEach(function (link) {
+      if (!link) return;
+      var from = link.from != null ? link.from : link.source;
+      var to = link.to != null ? link.to : link.target;
+      if (from == null || to == null) return;
+      out.push(Object.assign({}, link, { from: from, to: to }));
+    });
+    return out;
+  }
+
   function sanitizeHtml(html) {
     if (html == null) return "";
     var wrapper = document.createElement("div");
@@ -206,6 +219,7 @@
 
       this.option = Object.assign({}, DEFAULT_OPTION);
       this.data = [];
+      this.links = [];
       this.canvas = null;
       this.lines = [];
       this.lineTexts = [];
@@ -271,6 +285,7 @@
       this.option.theme = theme.id;
       this.applyThemeClass(theme.className);
       this.data = Array.isArray(payload && payload.data) ? payload.data : [];
+      this.links = normalizeLinks(payload && payload.links);
       this.mountCanvas();
       if (this.option.layout && this.option.layout !== "none") {
         this.applyLayout(this.option.layout);
@@ -342,18 +357,61 @@
 
     importJSON(text) {
       var parsed = JSON.parse(text);
-      if (!Array.isArray(parsed)) {
-        throw new Error("JSON root must be an array");
+      if (Array.isArray(parsed)) {
+        this.links = [];
+        return this.setData(parsed);
       }
-      return this.setData(parsed);
+      if (parsed && Array.isArray(parsed.data)) {
+        this.links = normalizeLinks(parsed.links);
+        return this.setData(parsed.data);
+      }
+      throw new Error("JSON root must be an array or { data, links? }");
     }
 
     getData() {
       return cloneData(this.data);
     }
 
+    getLinks() {
+      return cloneData(this.links);
+    }
+
+    setLinks(links) {
+      this.links = normalizeLinks(links);
+      this.render();
+      return this;
+    }
+
+    addLink(link) {
+      var normalized = normalizeLinks([link]);
+      if (!normalized.length) return this;
+      this.links = (this.links || []).concat(normalized);
+      this.render();
+      return this;
+    }
+
+    removeLinks(predicate) {
+      var self = this;
+      if (typeof predicate === "function") {
+        this.links = (this.links || []).filter(function (link, index) {
+          return !predicate(link, index);
+        });
+      } else {
+        var sid = String(predicate);
+        this.links = (this.links || []).filter(function (link) {
+          return String(link.from) !== sid && String(link.to) !== sid && String(link.id || "") !== sid;
+        });
+      }
+      this.render();
+      return this;
+    }
+
     toJSON(pretty) {
-      return JSON.stringify(this.data, null, pretty === false ? undefined : 2);
+      var indent = pretty === false ? undefined : 2;
+      if (this.links && this.links.length > 0) {
+        return JSON.stringify({ data: this.data, links: this.links }, null, indent);
+      }
+      return JSON.stringify(this.data, null, indent);
     }
 
     destroy() {
@@ -386,6 +444,7 @@
       this.clearRender();
       this.walkNodes(this.data, null);
       this.drawConnections(this.data, null);
+      this.drawExtraLinks();
       this.ensureLineFlowLoop();
       this.applyCanvasFit();
       this.applyViewTransform();
@@ -421,6 +480,39 @@
         if (!self.isNodeCollapsed(node) && Array.isArray(node.items) && node.items.length > 0) {
           self.drawConnections(node.items, node);
         }
+      });
+    }
+
+    isNodeVisible(nodeId) {
+      var sid = String(nodeId);
+      var found = false;
+      var self = this;
+      function walk(list) {
+        (list || []).forEach(function (n) {
+          if (found || !n) return;
+          if (String(n.id) === sid) {
+            found = true;
+            return;
+          }
+          if (!self.isNodeCollapsed(n) && Array.isArray(n.items) && n.items.length > 0) {
+            walk(n.items);
+          }
+        });
+      }
+      walk(this.data);
+      return found;
+    }
+
+    drawExtraLinks() {
+      var self = this;
+      (this.links || []).forEach(function (link, index) {
+        if (!link) return;
+        var fromNode = self.findNodeById(self.data, link.from);
+        var toNode = self.findNodeById(self.data, link.to);
+        if (!fromNode || !toNode) return;
+        if (!self.isNodeVisible(link.from) || !self.isNodeVisible(link.to)) return;
+        if (String(link.from) === String(link.to)) return;
+        self.drawLine(fromNode, toNode, link, String(link.from) + "~>" + String(link.to) + "#" + index);
       });
     }
 
@@ -973,13 +1065,14 @@
       return Number(lineOpt.arrowSize != null ? lineOpt.arrowSize : 10);
     }
 
-    drawLine(parent, child) {
-      var a = this.getAnchor(parent, child);
-      var style = child.linestyle || "line";
-      var color = this.resolveLineColor(child);
+    drawLine(fromNode, toNode, lineProps, lineId) {
+      var props = lineProps || toNode;
+      var a = this.getAnchor(fromNode, toNode);
+      var style = props.linestyle || "line";
+      var color = this.resolveLineColor(props);
       var width =
-        child.linewidth != null
-          ? Number(child.linewidth)
+        props.linewidth != null
+          ? Number(props.linewidth)
           : Number((this.option.line && this.option.line.width) || 1.2);
       var stroke = {
         color: color,
@@ -987,7 +1080,7 @@
         linecap: "round",
         linejoin: "round"
       };
-      var dashResolved = this.resolveLineDash(child);
+      var dashResolved = this.resolveLineDash(props);
       if (dashResolved) {
         var dashArr = this.normalizeDashArray(dashResolved);
         stroke.dasharray = dashArr.join(",");
@@ -1002,35 +1095,39 @@
         line = this.canvas.line(a.x1, a.y1, a.x2, a.y2).fill("none").stroke(stroke);
       }
 
-      var arrowStyle = this.resolveArrowStyle(child);
+      var arrowStyle = this.resolveArrowStyle(props);
       var arrowEl = null;
       if (arrowStyle && line) {
         var angle = this.getLineEndAngle(style, a);
-        var arrowSize = this.resolveArrowSize(child);
+        var arrowSize = this.resolveArrowSize(props);
         arrowEl = this.drawArrowHead(a.x2, a.y2, angle, color, arrowStyle, arrowSize);
       }
 
-      this.applyLineVisual(line, child);
-      this.lines.push({ id: parent.id + "->" + child.id, line: line, arrow: arrowEl });
-      this.drawLineText(child.linetext, a.x1, a.y1, a.x2, a.y2, child);
+      this.applyLineVisual(line, props);
+      this.lines.push({
+        id: lineId || String(fromNode.id) + "->" + String(toNode.id),
+        line: line,
+        arrow: arrowEl
+      });
+      this.drawLineText(props.linetext, a.x1, a.y1, a.x2, a.y2, props);
     }
 
-    resolveLineColor(child) {
-      if (child && child.linecolor) return String(child.linecolor);
+    resolveLineColor(props) {
+      if (props && props.linecolor) return String(props.linecolor);
       return (this.option.line && this.option.line.color) || "#00A1E7";
     }
 
-    resolveLineDash(child) {
+    resolveLineDash(props) {
       var lineOpt = this.option.line || {};
-      var dash = child && child.linedash != null ? child.linedash : lineOpt.dash;
-      var animate = this.resolveLineAnimate(child);
+      var dash = props && props.linedash != null ? props.linedash : lineOpt.dash;
+      var animate = this.resolveLineAnimate(props);
       if (animate && !dash) dash = true;
       return dash;
     }
 
-    resolveLineAnimate(child) {
+    resolveLineAnimate(props) {
       var lineOpt = this.option.line || {};
-      if (child && child.lineanimate != null) return child.lineanimate;
+      if (props && props.lineanimate != null) return props.lineanimate;
       return lineOpt.animate;
     }
 
@@ -1540,6 +1637,7 @@
       this.lines = [];
       this.lineTexts = [];
       this.drawConnections(this.data, null);
+      this.drawExtraLinks();
       this.ensureLineFlowLoop();
     }
 
@@ -1781,6 +1879,10 @@
       var removedSelected =
         this.selectedNodeId != null && String(this.selectedNodeId) === String(nodeId);
       this.removeNodeById(this.data, nodeId);
+      var sid = String(nodeId);
+      this.links = (this.links || []).filter(function (link) {
+        return String(link.from) !== sid && String(link.to) !== sid;
+      });
       if (removedSelected) {
         this.clearSelection();
       }
