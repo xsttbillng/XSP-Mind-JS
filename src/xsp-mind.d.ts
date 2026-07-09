@@ -30,6 +30,11 @@ export interface XSPMindLayoutGap {
   y: number;
 }
 
+export interface XSPMindCanvasMin {
+  width: number;
+  height: number;
+}
+
 export interface XSPMindNode {
   text?: string;
   id: string | number;
@@ -70,8 +75,26 @@ export interface XSPMindOption {
   zoomMin?: number;
   zoomMax?: number;
   zoomStep?: number;
+  /** expand: 画布随内容扩大 | viewport: 缩放到容器内显示 */
+  fitMode?: "expand" | "viewport";
+  /** 监听容器尺寸变化并重新适配 */
+  autoResize?: boolean;
+  canvasMin?: Partial<XSPMindCanvasMin>;
+  fitViewportPadding?: number;
+  /** default | dark | athens-blue（或中文：默认 / 高级黑 / 雅典蓝） */
+  theme?: string;
   onSelect?: (node: XSPMindNode | null) => void;
   onChange?: (data: XSPMindNode[]) => void;
+}
+
+export interface XSPMindThemeInfo {
+  id: string;
+  name: string;
+  className: string;
+}
+
+export interface XSPMindThemePreset extends XSPMindThemeInfo {
+  option?: Partial<Pick<XSPMindOption, "line" | "text">>;
 }
 
 export interface XSPMindInitPayload {
@@ -98,9 +121,12 @@ export declare class XSPMindJS {
   redrawAllLines(): void;
   setLineStyle(patch: Partial<XSPMindLineOption>): this;
   fitContent(): { width: number; height: number };
+  fitToViewport(): { width: number; height: number; zoom: number };
+  applyCanvasFit(): { width: number; height: number } | { width: number; height: number; zoom: number };
   applyLayout(mode: string): this;
   setZoom(z: number): this;
   resetView(): this;
+  applyTheme(themeName: string): this;
   exportJSON(filename?: string): string;
   exportSVG(filename?: string): string;
   exportPNG(filename?: string): Promise<Blob>;
@@ -113,10 +139,16 @@ declare global {
   interface Window {
     XSPMindJS: typeof XSPMindJS & {
       sanitizeHtml(html: string): string;
+      themes: XSPMindThemeInfo[];
+      getTheme(name: string): XSPMindThemePreset;
+      resolveThemeId(name: string): string;
     };
   }
   const XSPMindJS: {
     new (containerId: string, svgId: string): XSPMindJS;
     sanitizeHtml(html: string): string;
+    themes: XSPMindThemeInfo[];
+    getTheme(name: string): XSPMindThemePreset;
+    resolveThemeId(name: string): string;
   };
 }

@@ -19,9 +19,76 @@
     zoomMin: 0.4,
     zoomMax: 2.5,
     zoomStep: 0.1,
+    // expand: 画布随内容扩大（可滚动）| viewport: 缩放到容器内完整显示
+    fitMode: "expand",
+    autoResize: true,
+    canvasMin: { width: 320, height: 240 },
+    fitViewportPadding: 0.92,
     onSelect: null, // (node|null) => void
     onChange: null // (data) => void
   };
+
+  var THEME_CLASS_NAMES = ["xsp-theme-default", "xsp-theme-dark", "xsp-theme-athens"];
+
+  var THEME_PRESETS = {
+    default: {
+      id: "default",
+      name: "默认",
+      className: "xsp-theme-default",
+      option: {
+        line: { color: "#00A1E7", width: 1.2 },
+        text: { color: "#00A1E7", size: 12 }
+      }
+    },
+    dark: {
+      id: "dark",
+      name: "高级黑",
+      className: "xsp-theme-dark",
+      option: {
+        line: { color: "#5eead4", width: 1.3 },
+        text: { color: "#94e2d5", size: 12 }
+      }
+    },
+    "athens-blue": {
+      id: "athens-blue",
+      name: "雅典蓝",
+      className: "xsp-theme-athens",
+      option: {
+        line: { color: "#1e5a8a", width: 1.4 },
+        text: { color: "#1e5a8a", size: 12 }
+      }
+    }
+  };
+
+  var THEME_ALIASES = {
+    default: "default",
+    "默认": "default",
+    dark: "dark",
+    "高级黑": "dark",
+    black: "dark",
+    "athens-blue": "athens-blue",
+    athens: "athens-blue",
+    "雅典蓝": "athens-blue"
+  };
+
+  function resolveThemeId(name) {
+    if (name == null || name === "") return "default";
+    var key = String(name).trim();
+    if (THEME_ALIASES[key]) return THEME_ALIASES[key];
+    if (THEME_PRESETS[key]) return key;
+    return "default";
+  }
+
+  function getThemePreset(name) {
+    return THEME_PRESETS[resolveThemeId(name)] || THEME_PRESETS.default;
+  }
+
+  function listThemes() {
+    return Object.keys(THEME_PRESETS).map(function (id) {
+      var t = THEME_PRESETS[id];
+      return { id: t.id, name: t.name, className: t.className };
+    });
+  }
 
   function deepMerge(base, override) {
     const output = Object.assign({}, base);
@@ -115,7 +182,11 @@
       this.boundUp = this.onPointerUp.bind(this);
       this.boundWheel = this.onWheel.bind(this);
       this.boundStageDown = this.onStagePointerDown.bind(this);
+      this.boundResize = this.onContainerResize.bind(this);
       this.changeRaf = null;
+      this.resizeObserver = null;
+      this.resizeRaf = null;
+      this._windowResizeFallback = false;
 
       this.stage.addEventListener("pointerdown", this.boundStageDown);
       this.container.addEventListener("wheel", this.boundWheel, { passive: false });
@@ -136,13 +207,46 @@
     }
 
     initflow(payload) {
-      this.option = deepMerge(DEFAULT_OPTION, (payload && payload.option) || {});
+      var rawOption = Object.assign({}, (payload && payload.option) || {});
+      var themeId = resolveThemeId(rawOption.theme != null ? rawOption.theme : "default");
+      var theme = getThemePreset(themeId);
+      var themeOption = theme.option ? JSON.parse(JSON.stringify(theme.option)) : {};
+      delete rawOption.theme;
+      this.option = deepMerge(DEFAULT_OPTION, deepMerge(themeOption, rawOption));
+      this.option.theme = theme.id;
+      this.applyThemeClass(theme.className);
       this.data = Array.isArray(payload && payload.data) ? payload.data : [];
       this.mountCanvas();
       if (this.option.layout && this.option.layout !== "none") {
         this.applyLayout(this.option.layout);
       }
       this.render();
+      this.setupAutoResize();
+      return this;
+    }
+
+    applyThemeClass(className) {
+      if (!this.container) return;
+      var self = this;
+      THEME_CLASS_NAMES.forEach(function (c) {
+        self.container.classList.remove(c);
+      });
+      if (className) this.container.classList.add(className);
+    }
+
+    applyTheme(themeName) {
+      var theme = getThemePreset(themeName);
+      this.option.theme = theme.id;
+      this.applyThemeClass(theme.className);
+      if (theme.option && theme.option.line) {
+        this.option.line = deepMerge(this.option.line || {}, theme.option.line);
+      }
+      if (theme.option && theme.option.text) {
+        this.option.text = deepMerge(this.option.text || {}, theme.option.text);
+      }
+      this.clearArrowMarkers();
+      this.ensureArrowMarker();
+      if (this.canvas) this.redrawAllLines();
       return this;
     }
 
@@ -178,6 +282,7 @@
       document.removeEventListener("pointerup", this.boundUp);
       this.container.removeEventListener("wheel", this.boundWheel);
       this.stage.removeEventListener("pointerdown", this.boundStageDown);
+      this.teardownAutoResize();
       this.stopLineFlowLoop();
       this.clearRender();
       if (this.canvas) this.canvas.clear();
@@ -230,7 +335,7 @@
       this.walkNodes(this.data, null);
       this.drawConnections(this.data, null);
       this.ensureLineFlowLoop();
-      this.fitContent();
+      this.applyCanvasFit();
       this.applyViewTransform();
     }
 
@@ -748,11 +853,123 @@
     }
 
     resetView() {
+      if (this.option.fitMode === "viewport") {
+        return this.fitToViewport();
+      }
       this.view.x = 0;
       this.view.y = 0;
       this.view.zoom = 1;
       this.applyViewTransform();
       return this;
+    }
+
+    syncFitModeClass() {
+      if (!this.container) return;
+      if (this.option.fitMode === "viewport") {
+        this.container.classList.add("xsp-mind-fit-viewport");
+      } else {
+        this.container.classList.remove("xsp-mind-fit-viewport");
+      }
+    }
+
+    setupAutoResize() {
+      this.teardownAutoResize();
+      this.syncFitModeClass();
+      if (this.option.autoResize === false) return;
+      if (typeof ResizeObserver !== "undefined") {
+        this.resizeObserver = new ResizeObserver(this.boundResize);
+        this.resizeObserver.observe(this.container);
+      } else if (global.addEventListener) {
+        global.addEventListener("resize", this.boundResize);
+        this._windowResizeFallback = true;
+      }
+    }
+
+    teardownAutoResize() {
+      if (this.resizeRaf != null) {
+        cancelAnimationFrame(this.resizeRaf);
+        this.resizeRaf = null;
+      }
+      if (this.resizeObserver) {
+        this.resizeObserver.disconnect();
+        this.resizeObserver = null;
+      }
+      if (this._windowResizeFallback && global.removeEventListener) {
+        global.removeEventListener("resize", this.boundResize);
+        this._windowResizeFallback = false;
+      }
+    }
+
+    onContainerResize() {
+      if (this.resizeRaf != null) return;
+      var self = this;
+      this.resizeRaf = requestAnimationFrame(function () {
+        self.resizeRaf = null;
+        if (self.option.fitMode === "viewport") {
+          self.fitToViewport();
+        } else {
+          self.fitContent();
+        }
+      });
+    }
+
+    getContentBounds() {
+      var pad = Number(this.option.padding != null ? this.option.padding : 40);
+      var box = { minX: Infinity, minY: Infinity, maxX: 0, maxY: 0 };
+      this.collectBounds(this.data, box);
+      if (!isFinite(box.minX)) {
+        box = { minX: 0, minY: 0, maxX: 800, maxY: 600 };
+      }
+      return { box: box, pad: pad };
+    }
+
+    applyCanvasFit() {
+      if (this.option.fitMode === "viewport") {
+        return this.fitToViewport();
+      }
+      return this.fitContent();
+    }
+
+    fitToViewport() {
+      var bounds = this.getContentBounds();
+      var box = bounds.box;
+      var pad = bounds.pad;
+      var minW = (this.option.canvasMin && this.option.canvasMin.width) || 320;
+      var minH = (this.option.canvasMin && this.option.canvasMin.height) || 240;
+      var width = Math.max(minW, Math.ceil(box.maxX + pad));
+      var height = Math.max(minH, Math.ceil(box.maxY + pad));
+
+      this.svgEl.setAttribute("width", String(width));
+      this.svgEl.setAttribute("height", String(height));
+      this.svgEl.style.width = "";
+      this.svgEl.style.height = "";
+      this.stage.style.width = width + "px";
+      this.stage.style.height = height + "px";
+      if (this.canvas && this.canvas.size) {
+        try {
+          this.canvas.size(width, height);
+        } catch (e) {}
+      }
+
+      var rect = this.container.getBoundingClientRect();
+      var availW = rect.width || 1;
+      var availH = rect.height || 1;
+      var inset = Number(this.option.fitViewportPadding != null ? this.option.fitViewportPadding : 0.92);
+      var contentW = Math.max(1, box.maxX - box.minX + pad * 2);
+      var contentH = Math.max(1, box.maxY - box.minY + pad * 2);
+      var zoomMax = this.option.zoomMax || 2.5;
+      var zoomMin = this.option.zoomMin || 0.4;
+      var zoom = Math.min(availW / contentW, availH / contentH, zoomMax) * inset;
+      zoom = Math.max(zoom, zoomMin);
+      zoom = Math.round(zoom * 100) / 100;
+
+      var centerX = (box.minX + box.maxX) / 2;
+      var centerY = (box.minY + box.maxY) / 2;
+      this.view.zoom = zoom;
+      this.view.x = availW / 2 - centerX * zoom;
+      this.view.y = availH / 2 - centerY * zoom;
+      this.applyViewTransform();
+      return { width: width, height: height, zoom: zoom };
     }
 
     redrawAllLines() {
@@ -824,16 +1041,17 @@
     }
 
     fitContent() {
-      var pad = Number(this.option.padding != null ? this.option.padding : 40);
-      var box = { minX: Infinity, minY: Infinity, maxX: 0, maxY: 0 };
-      this.collectBounds(this.data, box);
-      if (!isFinite(box.minX)) {
-        box = { minX: 0, minY: 0, maxX: 800, maxY: 600 };
-      }
-      var width = Math.max(800, Math.ceil(box.maxX + pad));
-      var height = Math.max(600, Math.ceil(box.maxY + pad));
+      var bounds = this.getContentBounds();
+      var box = bounds.box;
+      var pad = bounds.pad;
+      var minW = (this.option.canvasMin && this.option.canvasMin.width) || 320;
+      var minH = (this.option.canvasMin && this.option.canvasMin.height) || 240;
+      var width = Math.max(minW, Math.ceil(box.maxX + pad));
+      var height = Math.max(minH, Math.ceil(box.maxY + pad));
       this.svgEl.setAttribute("width", String(width));
       this.svgEl.setAttribute("height", String(height));
+      this.svgEl.style.width = "";
+      this.svgEl.style.height = "";
       this.stage.style.width = width + "px";
       this.stage.style.height = height + "px";
       if (this.canvas && this.canvas.size) {
@@ -1121,4 +1339,7 @@
 
   global.XSPMindJS = XSPMindJS;
   global.XSPMindJS.sanitizeHtml = sanitizeHtml;
+  global.XSPMindJS.themes = listThemes();
+  global.XSPMindJS.getTheme = getThemePreset;
+  global.XSPMindJS.resolveThemeId = resolveThemeId;
 })(window);

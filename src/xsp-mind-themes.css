@@ -1,0 +1,65 @@
+/**
+ * XSP-Mind-JS 内置主题：默认 / 高级黑 / 雅典蓝
+ * 容器需带对应 class（由 option.theme 或 applyTheme 自动设置）
+ */
+
+/* —— 默认 —— */
+.xsp-mind-root.xsp-theme-default {
+  background: #f5f7fa;
+}
+
+.xsp-mind-root.xsp-theme-default .xsp-mind-stage > svg {
+  background: #ffffff;
+}
+
+.xsp-mind-root.xsp-theme-default .xsp-mind-node {
+  background: #ffffff;
+  border-color: #d9d9d9;
+  color: #333333;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.xsp-mind-root.xsp-theme-default .xsp-mind-selected {
+  outline-color: #00a1e7;
+}
+
+/* —— 高级黑 —— */
+.xsp-mind-root.xsp-theme-dark {
+  background: #0a0c10;
+}
+
+.xsp-mind-root.xsp-theme-dark .xsp-mind-stage > svg {
+  background: #12151b;
+}
+
+.xsp-mind-root.xsp-theme-dark .xsp-mind-node {
+  background: #1a1f28;
+  border-color: #343b47;
+  color: #e8ecf1;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.xsp-mind-root.xsp-theme-dark .xsp-mind-selected {
+  outline-color: #5eead4;
+}
+
+/* —— 雅典蓝 —— */
+.xsp-mind-root.xsp-theme-athens {
+  background: #e3edf7;
+}
+
+.xsp-mind-root.xsp-theme-athens .xsp-mind-stage > svg {
+  background: #f2f8fd;
+}
+
+.xsp-mind-root.xsp-theme-athens .xsp-mind-node {
+  background: #ffffff;
+  border-color: #5a8bb5;
+  color: #153e66;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(30, 90, 138, 0.14);
+}
+
+.xsp-mind-root.xsp-theme-athens .xsp-mind-selected {
+  outline-color: #1e5a8a;
+}

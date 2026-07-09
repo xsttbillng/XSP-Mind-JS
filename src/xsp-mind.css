@@ -1,3 +1,5 @@
+@import url("./xsp-mind-themes.css");
+
 .xsp-mind-root {
   position: relative;
   width: 100%;
@@ -6,11 +8,20 @@
   background: #fff;
 }
 
+.xsp-mind-root.xsp-mind-fit-viewport {
+  overflow: hidden;
+}
+
 .xsp-mind-stage {
   position: relative;
   transform-origin: 0 0;
   min-width: 100%;
   min-height: 100%;
+}
+
+.xsp-mind-stage > svg {
+  display: block;
+  background: #fff;
 }
 
 .xsp-mind-root.xsp-mind-panning {
